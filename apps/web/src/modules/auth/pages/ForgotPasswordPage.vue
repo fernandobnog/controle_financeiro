@@ -2,7 +2,7 @@
   <section class="auth-screen">
     <div class="auth-screen__content">
       <aside class="auth-hero page-panel">
-        <p class="app-shell__eyebrow">Recuperacao de acesso</p>
+        <p class="app-shell__eyebrow">Recuperação de acesso</p>
         <h1>Solicite um token temporario para redefinir sua senha.</h1>
         <p class="panel-note auth-hero__note">
           Em producao, o token deve ser entregue por um canal seguro. No ambiente local, ele aparece na tela para fechar o fluxo.
@@ -11,7 +11,7 @@
 
       <Card class="auth-card">
         <template #title>Recuperar senha</template>
-        <template #subtitle>Informe o e-mail da conta para gerar um token de redefinicao.</template>
+        <template #subtitle>Informe o e-mail da conta para gerar um token de redefinição.</template>
         <template #content>
           <form class="auth-form" @submit.prevent="submitRecovery">
             <label class="auth-form__field">
@@ -25,7 +25,7 @@
             <div v-if="resetToken" class="page-panel">
               <p class="app-shell__eyebrow">Token local</p>
               <p class="panel-note">{{ resetToken }}</p>
-              <Button type="button" label="Ir para redefinicao" icon="pi pi-arrow-right" @click="goToReset" />
+              <Button type="button" label="Ir para redefinição" icon="pi pi-arrow-right" @click="goToReset" />
             </div>
 
             <Button type="submit" label="Gerar token" icon="pi pi-envelope" :loading="loading" />
@@ -82,7 +82,7 @@ export default defineComponent({
         this.feedbackMessage = result.message;
         this.resetToken = result.resetToken ?? '';
       } catch (error) {
-        this.errorMessage = error instanceof Error ? error.message : 'Falha ao solicitar a recuperacao de senha.';
+        this.errorMessage = error instanceof Error ? error.message : 'Falha ao solicitar a recuperação de senha.';
       } finally {
         this.loading = false;
       }

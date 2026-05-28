@@ -2,34 +2,34 @@
   <section class="page-panel">
     <header class="page-panel__header">
       <div>
-        <p class="app-shell__eyebrow">Onboarding financeiro</p>
-        <h2>Base inicial da conta</h2>
-        <p class="panel-note">Defina a unidade familiar, renda mensal e dividas atuais antes de seguir para o dashboard e o upload de documentos.</p>
+        <p class="app-shell__eyebrow">Configuração inicial</p>
+        <h2>Base financeira da família</h2>
+        <p class="panel-note">Defina a família, as rendas e as dívidas atuais. Você pode enviar documentos a qualquer momento.</p>
       </div>
       <Tag :value="statusLabel" severity="info" />
     </header>
 
     <div v-if="loading" class="page-panel">
       <ProgressSpinner strokeWidth="4" />
-      <p class="panel-note">Carregando a configuracao da conta...</p>
+      <p class="panel-note">Carregando a configuração da conta...</p>
     </div>
 
     <div v-else class="form-stack">
       <div class="summary-grid">
         <article class="summary-tile">
-          <p class="summary-tile__label">Household ativo</p>
+          <p class="summary-tile__label">Unidade familiar ativa</p>
           <p class="summary-tile__value">{{ form.householdName || 'Sem nome definido' }}</p>
         </article>
         <article class="summary-tile">
-          <p class="summary-tile__label">Rendas cadastradas</p>
+          <p class="summary-tile__label">Fontes de renda</p>
           <p class="summary-tile__value">{{ form.incomes.length }}</p>
         </article>
         <article class="summary-tile">
-          <p class="summary-tile__label">Dividas cadastradas</p>
+          <p class="summary-tile__label">Dívidas cadastradas</p>
           <p class="summary-tile__value">{{ form.debts.length }}</p>
         </article>
         <article class="summary-tile">
-          <p class="summary-tile__label">Envelopes do OBZ</p>
+          <p class="summary-tile__label">Envelopes de orçamento</p>
           <p class="summary-tile__value">{{ form.envelopes.length }}</p>
         </article>
       </div>
@@ -44,7 +44,7 @@
           <div class="section-block__header">
             <div>
               <h3>Rendas mensais</h3>
-              <p class="panel-note">Cadastre as principais fontes recorrentes para o calculo do DTI.</p>
+              <p class="panel-note">Cadastre as principais fontes recorrentes para o cálculo do DTI.</p>
             </div>
             <Button type="button" label="Adicionar renda" icon="pi pi-plus" severity="secondary" outlined @click="addIncome" />
           </div>
@@ -65,7 +65,7 @@
 
               <div class="form-grid">
                 <label class="auth-form__field">
-                  <span>Descricao</span>
+                  <span>Descrição</span>
                   <InputText v-model.trim="income.label" />
                 </label>
 
@@ -88,20 +88,20 @@
         <section class="section-block">
           <div class="section-block__header">
             <div>
-              <h3>Dividas atuais</h3>
+              <h3>Dívidas atuais</h3>
               <p class="panel-note">Inclua saldo, parcela mensal e taxa para o comparativo entre avalanche e bola de neve.</p>
             </div>
-            <Button type="button" label="Adicionar divida" icon="pi pi-plus" severity="secondary" outlined @click="addDebt" />
+            <Button type="button" label="Adicionar dívida" icon="pi pi-plus" severity="secondary" outlined @click="addDebt" />
           </div>
 
           <div v-if="form.debts.length === 0" class="entry-card">
-            <p class="panel-note">Nenhuma divida cadastrada ainda. Se preferir, conclua o onboarding e volte depois.</p>
+            <p class="panel-note">Nenhuma dívida cadastrada ainda. Se preferir, conclua o onboarding e volte depois.</p>
           </div>
 
           <div v-else class="entry-grid">
             <article v-for="(debt, index) in form.debts" :key="`debt-${index}`" class="entry-card">
               <div class="entry-card__header">
-                <p class="entry-card__title">Divida {{ index + 1 }}</p>
+                <p class="entry-card__title">Dívida {{ index + 1 }}</p>
                 <Button type="button" icon="pi pi-trash" severity="danger" text @click="removeDebt(index)" />
               </div>
 
@@ -138,7 +138,7 @@
         <section class="section-block">
           <div class="section-block__header">
             <div>
-              <h3>Envelopes do orcamento base zero</h3>
+              <h3>Envelopes do orçamento base zero</h3>
               <p class="panel-note">Defina categorias e valores planejados para montar o OBZ inicial da conta.</p>
             </div>
             <Button
@@ -186,8 +186,8 @@
         <p v-if="errorMessage" class="panel-error">{{ errorMessage }}</p>
 
         <div class="page-actions">
-          <span class="panel-note">Ao salvar, o dashboard e a ingestao passam a usar o household real da sua conta.</span>
-          <Button type="submit" label="Salvar e continuar" icon="pi pi-check" :loading="saving" />
+          <span class="panel-note">Ao salvar, o dashboard passa a usar os dados reais da sua conta.</span>
+          <Button type="submit" label="Salvar base financeira" icon="pi pi-check" :loading="saving" />
         </div>
       </form>
     </div>
@@ -259,14 +259,14 @@ export default defineComponent({
   computed: {
     statusLabel(): string {
       if (!this.form.householdName.trim()) {
-        return 'pendente';
+        return 'Pendente';
       }
 
       if (this.form.debts.length === 0) {
-        return 'base minima';
+        return 'Base mínima';
       }
 
-      return 'configurado';
+      return 'Configurado';
     }
   },
   async created() {

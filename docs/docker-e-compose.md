@@ -215,3 +215,54 @@ docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.y
 - As imagens são multi-stage e executadas com o mínimo necessário.
 - O compose de produção não depende de bind mount de código.
 - O compose local principal sobe a stack sem ultrapassar o orçamento total e sem permitir que um único serviço monopolize a RAM ou CPU disponíveis.
+
+## Variáveis de IA e política de mock por ambiente
+
+O sistema integra dois serviços externos de IA: **LlamaParse** (parse de PDFs) e **OpenRouter** (classificação de itens financeiros). A variável `MOCK_EXTERNAL_SERVICES` controla se essas chamadas são reais ou simuladas.
+
+### Comportamento por ambiente
+
+| Ambiente | `MOCK_EXTERNAL_SERVICES` | LlamaParse | OpenRouter |
+|----------|--------------------------|-----------|-----------|
+| `dev` | `true` (padrão) | simulado localmente | simulado localmente |
+| `test` | `true` | sempre simulado | sempre simulado |
+| `prod` | `false` | chave real obrigatória | chave real obrigatória |
+
+> Em `test`, `MOCK_EXTERNAL_SERVICES` deve ser forçado como `true` no `compose.test.yaml`
+> para evitar chamadas reais durante testes automatizados.
+
+### Variáveis de IA em produção
+
+Defina via secrets do orquestrador ou variáveis de ambiente do CI/CD. **Nunca** as inclua em código-fonte, imagens Docker ou logs.
+
+```env
+# LlamaParse
+LLAMAPARSE_BASE_URL=https://api.llamaindex.ai
+LLAMAPARSE_API_KEY=<sua-chave>
+LLAMAPARSE_RESULT_TYPE=markdown
+LLAMAPARSE_TIMEOUT_MS=120000
+LLAMAPARSE_POLL_INTERVAL_MS=3000
+
+# OpenRouter
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_API_KEY=<sua-chave>
+OPENROUTER_MODEL_DEFAULT=openai/gpt-4.1-mini
+OPENROUTER_HTTP_REFERER=https://seu-dominio.com
+OPENROUTER_APP_TITLE=controle-financeiro
+
+# Cognee (opcional no MVP)
+COGNEE_BASE_URL=https://api.cognee.ai
+COGNEE_API_KEY=<sua-chave>
+COGNEE_PROJECT_ID=<id>
+COGNEE_TIMEOUT_MS=30000
+
+# Mock — false em produção
+MOCK_EXTERNAL_SERVICES=false
+```
+
+### Segurança das variáveis de IA
+
+- Chaves de IA têm escopo mínimo necessário (apenas as permissões exigidas pelo serviço).
+- O cliente OpenRouter usa concorrência limitada (`MAX_CONCURRENT_REQUESTS = 3`) e retry com backoff para evitar saturação da cota.
+- O cliente LlamaParse usa timeout e poll interval configuráveis via variável de ambiente.
+- Nenhuma chave é logada — o `log-sanitizer` mascara automaticamente qualquer campo cujo nome contenha `key`, `secret`, `token`, `password` ou `authorization`.

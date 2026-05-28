@@ -3,7 +3,7 @@
     <div class="auth-screen__content auth-screen__content--register">
       <Card class="auth-card">
         <template #title>Criar conta</template>
-        <template #subtitle>Cadastre seu usuario e sua unidade familiar inicial.</template>
+        <template #subtitle>Cadastre seu usuário e sua unidade familiar inicial.</template>
         <template #content>
           <form class="auth-form" @submit.prevent="submitRegister">
             <label class="auth-form__field">
@@ -48,12 +48,12 @@
         <p class="app-shell__eyebrow">Onboarding SaaS</p>
         <h1>Crie sua conta e comece a consolidar renda, dividas e documentos.</h1>
         <p class="panel-note auth-hero__note">
-          O cadastro inicial cria sua conta, vincula seu primeiro usuario e prepara um caso familiar vazio para voce preencher com segurança.
+          O cadastro inicial cria sua conta, vincula seu primeiro usuário e prepara um caso familiar vazio para você preencher com segurança.
         </p>
         <div class="auth-hero__highlights">
           <div class="auth-highlight">
             <i class="pi pi-user"></i>
-            <span>Usuario responsavel criado como owner da conta.</span>
+            <span>Usuário responsável criado como owner da conta.</span>
           </div>
           <div class="auth-highlight">
             <i class="pi pi-home"></i>

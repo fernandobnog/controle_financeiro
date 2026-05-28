@@ -126,7 +126,51 @@ Entregar um fluxo funcional, auditável e seguro para um cliente SaaS e sua fam�
 | Envelope | base do orçamento | categoria, meta e valor alocado |
 | Plano de ação | resultado consolidado | estratégia escolhida e projeções |
 
-## Critérios de aceite do MVP
+## Fluxo documents-first (estratégia atual)
+
+O MVP segue uma abordagem **documents-first**: o ponto de entrada preferencial é o upload de documentos reais, não o preenchimento manual de formulários. Isso reduz a fricção do onboarding e aumenta a precisão dos dados.
+
+### Pipeline completo de um documento
+
+```
+Usuário faz upload do arquivo
+    ↓
+file-server (Rails) armazena e retorna receipts
+    ↓
+API registra o documento (status: received)
+    ↓
+POST /documents/:id/process dispara pipeline assíncrono
+    ↓
+LlamaParse converte PDF/imagem em Markdown
+    ↓
+OpenRouter classifica cada item extraído
+    (income | fixed-expense | debt-installment | ambiguous | ...)
+    ↓
+Itens gravados em extracted_items (status: pending review)
+    ↓
+Usuário revisa na tela /review/:documentId
+    (Confirmar / Corrigir / Descartar)
+    ↓
+Todos os itens revisados → pipeline_status: consolidated
+    ↓
+Dados alimentam diagnóstico e plano
+```
+
+### Modo mock (desenvolvimento sem chaves de API)
+
+Com `MOCK_EXTERNAL_SERVICES=true`, o pipeline retorna automaticamente 3 itens fictícios (1 renda, 1 parcela de dívida, 1 despesa fixa), permitindo que todo o fluxo funcione offline.
+
+### Tipos de documento aceitos
+
+| Tipo | Mime types aceitos |
+|------|--------------------|
+| Extrato bancário | `application/pdf` |
+| Fatura de cartão | `application/pdf` |
+| Contrato de empréstimo | `application/pdf` |
+| Comprovante / print | `image/jpeg`, `image/png`, `image/webp`, `image/tiff` |
+| DDA (débito automático) | `application/pdf` |
+
+
 
 - O usuário consegue se cadastrar, autenticar e acessar apenas os dados da sua conta.
 - O usuário consegue enviar um documento e acompanhar seu status.

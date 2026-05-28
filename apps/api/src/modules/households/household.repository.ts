@@ -168,44 +168,32 @@ export const saveOnboardingProfile = async (accountId: string, input: Onboarding
       `,
       [normalizedHouseholdName, householdId, accountId]
     );
+
+    // Replace-all strategy: DELETE existing rows then INSERT new ones.
+    // Avoids id != ALL($2::uuid[]) which is not universally supported in test environments.
     await client.query('DELETE FROM incomes WHERE household_id = $1', [householdId]);
-    await client.query('DELETE FROM debts WHERE household_id = $1', [householdId]);
-    await client.query('DELETE FROM budget_envelopes WHERE household_id = $1', [householdId]);
 
     for (const income of input.incomes) {
       await client.query(
-        `
-          INSERT INTO incomes (id, household_id, label, amount, recurring)
-          VALUES ($1, $2, $3, $4, $5)
-        `,
+        `INSERT INTO incomes (id, household_id, label, amount, recurring) VALUES ($1, $2, $3, $4, $5)`,
         [randomUUID(), householdId, income.label.trim(), income.amount, income.recurring]
       );
     }
 
+    await client.query('DELETE FROM debts WHERE household_id = $1', [householdId]);
+
     for (const debt of input.debts) {
       await client.query(
-        `
-          INSERT INTO debts (id, household_id, creditor, balance, monthly_payment, interest_rate, overdue_months)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `,
-        [
-          randomUUID(),
-          householdId,
-          debt.creditor.trim(),
-          debt.balance,
-          debt.monthlyPayment,
-          debt.interestRate,
-          debt.overdueMonths
-        ]
+        `INSERT INTO debts (id, household_id, creditor, balance, monthly_payment, interest_rate, overdue_months) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [randomUUID(), householdId, debt.creditor.trim(), debt.balance, debt.monthlyPayment, debt.interestRate, debt.overdueMonths]
       );
     }
 
+    await client.query('DELETE FROM budget_envelopes WHERE household_id = $1', [householdId]);
+
     for (const envelope of input.envelopes) {
       await client.query(
-        `
-          INSERT INTO budget_envelopes (id, household_id, category, planned_amount, actual_amount)
-          VALUES ($1, $2, $3, $4, $5)
-        `,
+        `INSERT INTO budget_envelopes (id, household_id, category, planned_amount, actual_amount) VALUES ($1, $2, $3, $4, $5)`,
         [randomUUID(), householdId, envelope.category.trim(), envelope.plannedAmount, envelope.actualAmount ?? null]
       );
     }

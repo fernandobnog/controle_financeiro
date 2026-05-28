@@ -10,8 +10,19 @@ export const diagnosisSummarySchema = z.object({
   totalDebtBalance: z.number().nonnegative()
 });
 
+export const diagnosisExplainedSchema = diagnosisSummarySchema.extend({
+  classificationLabel: z.string(),
+  classificationSummary: z.string(),
+  situationNarrative: z.string(),
+  firstRecommendedAction: z.string(),
+  overdueDebtsCount: z.number().int().nonnegative(),
+  monthlySurplus: z.number(),
+  essentialMonthlyObligations: z.number().nonnegative()
+});
+
 export const diagnosisSchema = diagnosisSummarySchema;
 
 export type DtiClassification = z.infer<typeof dtiClassificationSchema>;
 export type FinancialDiagnosisSummary = z.infer<typeof diagnosisSummarySchema>;
 export type FinancialDiagnosis = FinancialDiagnosisSummary;
+export type FinancialDiagnosisExplained = z.infer<typeof diagnosisExplainedSchema>;

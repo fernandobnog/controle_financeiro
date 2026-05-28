@@ -365,6 +365,7 @@ describe('API bootstrap', () => {
 
     expect(reviewResponse.status).toBe(200);
     expect(Object.keys(reviewResponse.body).sort()).toEqual([
+      'extractedItems',
       'filename',
       'id',
       'ocrEntries',
@@ -381,6 +382,7 @@ describe('API bootstrap', () => {
 
     expect(updateResponse.status).toBe(200);
     expect(Object.keys(updateResponse.body).sort()).toEqual([
+      'extractedItems',
       'filename',
       'id',
       'ocrEntries',
@@ -504,6 +506,288 @@ describe('API bootstrap', () => {
 
     expect(forbiddenReview.status).toBe(403);
     expect(forbiddenReview.body.message).toBe('Conta sem acesso ao documento solicitado.');
+
+    await app.close();
+  });
+});
+
+describe('Document pipeline (mock mode)', () => {
+  it('accepts a valid process request and returns 202', async () => {
+    const app = buildApp();
+    await app.ready();
+    const token = await login(app);
+
+    // Register a document first
+    const registerResponse = await request(app.server)
+      .post('/api/documents')
+      .set(withBearer(token))
+      .send({
+        householdId: defaultHouseholdId,
+        fileServerDocumentId: 'test-pipeline-doc-001',
+        filename: 'extrato-pipeline.pdf',
+        mimeType: 'application/pdf',
+        sizeInBytes: 2048,
+        signedDownloadUrl: null
+      });
+
+    expect(registerResponse.status).toBe(201);
+
+    const documentId = registerResponse.body.id as string;
+
+    // 1 KB minimal valid PDF base64 placeholder (mock does not parse content)
+    const fakeBase64 = Buffer.from('%PDF-1.4 fake content for mock').toString('base64');
+
+    const processResponse = await request(app.server)
+      .post(`/api/documents/${documentId}/process`)
+      .set(withBearer(token))
+      .send({
+        householdId: defaultHouseholdId,
+        mimeType: 'application/pdf',
+        filename: 'extrato-pipeline.pdf',
+        fileBase64: fakeBase64
+      });
+
+    expect(processResponse.status).toBe(202);
+    expect(processResponse.body.documentId).toBe(documentId);
+    expect(typeof processResponse.body.message).toBe('string');
+
+    await app.close();
+  });
+
+  it('returns extracted items after mock processing', async () => {
+    const app = buildApp();
+    await app.ready();
+    const token = await login(app);
+
+    const registerResponse = await request(app.server)
+      .post('/api/documents')
+      .set(withBearer(token))
+      .send({
+        householdId: defaultHouseholdId,
+        fileServerDocumentId: 'test-pipeline-items-001',
+        filename: 'extrato-items.pdf',
+        mimeType: 'application/pdf',
+        sizeInBytes: 2048,
+        signedDownloadUrl: null
+      });
+
+    const documentId = registerResponse.body.id as string;
+    const fakeBase64 = Buffer.from('%PDF-1.4 fake content for mock').toString('base64');
+
+    // Fire pipeline synchronously (mock resolves immediately)
+    await request(app.server)
+      .post(`/api/documents/${documentId}/process`)
+      .set(withBearer(token))
+      .send({
+        householdId: defaultHouseholdId,
+        mimeType: 'application/pdf',
+        filename: 'extrato-items.pdf',
+        fileBase64: fakeBase64
+      });
+
+    // Give async pipeline a moment to complete
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const itemsResponse = await request(app.server)
+      .get(`/api/documents/${documentId}/items`)
+      .set(withBearer(token));
+
+    expect(itemsResponse.status).toBe(200);
+    expect(itemsResponse.body.documentId).toBe(documentId);
+    expect(typeof itemsResponse.body.totalItems).toBe('number');
+    expect(typeof itemsResponse.body.pendingReview).toBe('number');
+    expect(typeof itemsResponse.body.groups).toBe('object');
+
+    await app.close();
+  });
+
+  it('returns pipeline status for a registered document', async () => {
+    const app = buildApp();
+    await app.ready();
+    const token = await login(app);
+
+    const registerResponse = await request(app.server)
+      .post('/api/documents')
+      .set(withBearer(token))
+      .send({
+        householdId: defaultHouseholdId,
+        fileServerDocumentId: 'test-pipeline-status-001',
+        filename: 'extrato-status.pdf',
+        mimeType: 'application/pdf',
+        sizeInBytes: 1024,
+        signedDownloadUrl: null
+      });
+
+    const documentId = registerResponse.body.id as string;
+
+    const fakeBase64 = Buffer.from('%PDF-1.4 fake content for mock').toString('base64');
+
+    await request(app.server)
+      .post(`/api/documents/${documentId}/process`)
+      .set(withBearer(token))
+      .send({
+        mimeType: 'application/pdf',
+        filename: 'extrato-status.pdf',
+        fileBase64: fakeBase64
+      });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const statusResponse = await request(app.server)
+      .get(`/api/documents/${documentId}/pipeline-status`)
+      .set(withBearer(token));
+
+    expect(statusResponse.status).toBe(200);
+    expect(typeof statusResponse.body.status).toBe('string');
+
+    await app.close();
+  });
+
+  it('rejects process request with unsupported MIME type', async () => {
+    const app = buildApp();
+    await app.ready();
+    const token = await login(app);
+
+    const registerResponse = await request(app.server)
+      .post('/api/documents')
+      .set(withBearer(token))
+      .send({
+        householdId: defaultHouseholdId,
+        fileServerDocumentId: 'test-pipeline-mime-001',
+        filename: 'arquivo.exe',
+        mimeType: 'application/x-msdownload',
+        sizeInBytes: 512,
+        signedDownloadUrl: null
+      });
+
+    const documentId = registerResponse.body.id as string;
+
+    const processResponse = await request(app.server)
+      .post(`/api/documents/${documentId}/process`)
+      .set(withBearer(token))
+      .send({
+        mimeType: 'application/x-msdownload',
+        filename: 'arquivo.exe',
+        fileBase64: Buffer.from('MZ').toString('base64')
+      });
+
+    expect(processResponse.status).toBe(400);
+
+    await app.close();
+  });
+
+  it('rejects process request when base64 payload exceeds 10 MB', async () => {
+    const app = buildApp();
+    await app.ready();
+    const token = await login(app);
+
+    const registerResponse = await request(app.server)
+      .post('/api/documents')
+      .set(withBearer(token))
+      .send({
+        householdId: defaultHouseholdId,
+        fileServerDocumentId: 'test-pipeline-oversize-001',
+        filename: 'arquivo-grande.pdf',
+        mimeType: 'application/pdf',
+        sizeInBytes: 20_971_520,
+        signedDownloadUrl: null
+      });
+
+    const documentId = registerResponse.body.id as string;
+
+    // ~11 MB of base64
+    const oversizedBase64 = 'A'.repeat(11 * 1024 * 1024 * 4 / 3);
+
+    const processResponse = await request(app.server)
+      .post(`/api/documents/${documentId}/process`)
+      .set(withBearer(token))
+      .send({
+        mimeType: 'application/pdf',
+        filename: 'arquivo-grande.pdf',
+        fileBase64: oversizedBase64
+      });
+
+    expect(processResponse.status).toBe(400);
+
+    await app.close();
+  });
+});
+
+describe('Diagnosis explained endpoint', () => {
+  it('returns explained diagnosis with narrative and first action', async () => {
+    const app = buildApp();
+    await app.ready();
+    const token = await login(app);
+
+    const response = await request(app.server)
+      .get('/api/diagnosis/explained')
+      .set(withBearer(token));
+
+    expect(response.status).toBe(200);
+
+    const body = response.body;
+
+    expect(typeof body.dtiPercent).toBe('number');
+    expect(typeof body.classification).toBe('string');
+    expect(typeof body.classificationLabel).toBe('string');
+    expect(typeof body.classificationSummary).toBe('string');
+    expect(typeof body.situationNarrative).toBe('string');
+    expect(typeof body.firstRecommendedAction).toBe('string');
+    expect(typeof body.overdueDebtsCount).toBe('number');
+    expect(typeof body.monthlySurplus).toBe('number');
+    expect(typeof body.essentialMonthlyObligations).toBe('number');
+
+    await app.close();
+  });
+
+  it('blocks unauthenticated access to explained diagnosis', async () => {
+    const app = buildApp();
+    await app.ready();
+
+    const response = await request(app.server).get('/api/diagnosis/explained');
+
+    expect(response.status).toBe(401);
+
+    await app.close();
+  });
+});
+
+describe('Plans comparison explained endpoint', () => {
+  it('returns explained plan comparison with strategy rationale', async () => {
+    const app = buildApp();
+    await app.ready();
+    const token = await login(app);
+
+    const response = await request(app.server)
+      .get('/api/plans/comparison/explained')
+      .set(withBearer(token));
+
+    expect(response.status).toBe(200);
+
+    const body = response.body;
+
+    expect(typeof body.recommendedStrategy).toBe('string');
+    expect(['avalanche', 'snowball']).toContain(body.recommendedStrategy);
+    expect(typeof body.recommendationReason).toBe('string');
+    expect(typeof body.essentialMonthlyObligations).toBe('number');
+    expect(typeof body.surplusAfterEssentials).toBe('number');
+    expect(body.avalanche).toBeDefined();
+    expect(body.snowball).toBeDefined();
+    expect(typeof body.avalanche.strategy).toBe('string');
+    expect(typeof body.avalanche.strategyLabel).toBe('string');
+    expect(typeof body.avalanche.whyThisStrategy).toBe('string');
+    expect(Array.isArray(body.avalanche.installments)).toBe(true);
+
+    await app.close();
+  });
+
+  it('blocks unauthenticated access to explained plan comparison', async () => {
+    const app = buildApp();
+    await app.ready();
+
+    const response = await request(app.server).get('/api/plans/comparison/explained');
+
+    expect(response.status).toBe(401);
 
     await app.close();
   });

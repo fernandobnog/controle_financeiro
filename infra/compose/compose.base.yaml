@@ -23,6 +23,22 @@ x-api-environment: &api-environment
   PORT: ${PORT}
   DATABASE_URL: ${DATABASE_URL}
   AUTO_SEED_DB: ${AUTO_SEED_DB}
+  MOCK_EXTERNAL_SERVICES: ${MOCK_EXTERNAL_SERVICES:-true}
+  FILE_SERVER_URL: ${FILE_SERVER_URL}
+  OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_MODEL_DEFAULT: ${OPENROUTER_MODEL_DEFAULT:-openai/gpt-4.1-mini}
+  OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER:-}
+  OPENROUTER_APP_TITLE: ${OPENROUTER_APP_TITLE:-controle-financeiro}
+  LLAMAPARSE_BASE_URL: ${LLAMAPARSE_BASE_URL:-}
+  LLAMAPARSE_API_KEY: ${LLAMAPARSE_API_KEY:-}
+  LLAMAPARSE_RESULT_TYPE: ${LLAMAPARSE_RESULT_TYPE:-markdown}
+  LLAMAPARSE_TIMEOUT_MS: ${LLAMAPARSE_TIMEOUT_MS:-120000}
+  LLAMAPARSE_POLL_INTERVAL_MS: ${LLAMAPARSE_POLL_INTERVAL_MS:-2000}
+  COGNEE_BASE_URL: ${COGNEE_BASE_URL:-}
+  COGNEE_API_KEY: ${COGNEE_API_KEY:-}
+  COGNEE_PROJECT_ID: ${COGNEE_PROJECT_ID:-}
+  COGNEE_TIMEOUT_MS: ${COGNEE_TIMEOUT_MS:-30000}
 
 x-file-server-environment: &file-server-environment
   <<: *app-auth-environment
@@ -111,12 +127,12 @@ services:
     networks:
       - controle-financeiro
     cpus: 0.25
-    mem_limit: 192m
+    mem_limit: 160m
     deploy:
       resources:
         limits:
           cpus: '0.25'
-          memory: 192M
+          memory: 160M
     healthcheck:
       test:
         ['CMD', 'ruby', '-rnet/http', '-ruri', '-e', "response = Net::HTTP.get_response(URI('http://127.0.0.1:3002/api/health')); exit(response.is_a?(Net::HTTPSuccess) ? 0 : 1)"]

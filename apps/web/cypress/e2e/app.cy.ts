@@ -282,7 +282,7 @@ describe('Controle financeiro web', () => {
         monthlyIncome: 6500,
         monthlyDebtPayments: 780,
         dtiPercent: 12,
-        classification: 'healthy',
+        classification: 'sustainable',
         totalDebtBalance: 18000
       }).as('diagnosis');
 
@@ -469,7 +469,7 @@ describe('Controle financeiro web', () => {
         monthlyIncome: 5200,
         monthlyDebtPayments: 540,
         dtiPercent: 10.38,
-        classification: 'healthy',
+        classification: 'sustainable',
         totalDebtBalance: 9800
       }).as('diagnosis');
 
@@ -500,5 +500,168 @@ describe('Controle financeiro web', () => {
       cy.wait('@diagnosis');
       cy.wait('@plans');
       cy.contains('Diagnostico financeiro').should('be.visible');
+    });
+  });
+
+  describe('Jornada documents-first', () => {
+    const mockSession = {
+      accessToken: 'mock-token-pipeline',
+      expiresAt: '2030-12-31T23:59:59Z',
+      user: { email: 'owner@familia-souza.local', fullName: 'Responsavel Familia Souza' }
+    };
+
+    const mockProfile = {
+      incomes: [{ description: 'Salario', amount: 4800 }],
+      debts: [{ creditor: 'Banco A', balance: 5000, monthlyPayment: 300, interestRate: 2 }]
+    };
+
+    beforeEach(() => {
+      cy.intercept('POST', 'http://localhost:3001/api/auth/login', mockSession).as('login');
+      cy.intercept('GET', 'http://localhost:3001/api/onboarding/profile', mockProfile).as('profile');
+      cy.intercept('GET', 'http://localhost:3001/api/diagnosis/summary', {
+        monthlyIncome: 4800, monthlyDebtPayments: 300, dtiPercent: 6.25,
+        classification: 'sustainable', totalDebtBalance: 5000
+      }).as('diagnosis');
+      cy.intercept('GET', 'http://localhost:3001/api/diagnosis/explained', {
+        monthlyIncome: 4800, monthlyDebtPayments: 300, dtiPercent: 6.25,
+        classification: 'sustainable', totalDebtBalance: 5000,
+        classificationLabel: 'Situacao saudavel',
+        classificationSummary: 'Sua situacao financeira esta equilibrada.',
+        situationNarrative: 'Voce esta comprometendo 6% da sua renda com dividas.',
+        firstRecommendedAction: 'Continue pagando as parcelas em dia.',
+        overdueDebtsCount: 0,
+        monthlySurplus: 4500,
+        essentialMonthlyObligations: 300
+      }).as('diagnosisExplained');
+      cy.intercept('GET', 'http://localhost:3001/api/plans/comparison', {
+        avalanche: { installments: [{ creditor: 'Banco A', recommendedPayment: 300 }], totalMonths: 18, totalInterestPaid: 900, monthlySurplus: 4500 },
+        snowball: { installments: [{ creditor: 'Banco A', recommendedPayment: 300 }], totalMonths: 18, totalInterestPaid: 900, monthlySurplus: 4500 }
+      }).as('plans');
+    });
+
+    it('navega da pagina de boas-vindas para o intake e exibe a tela corretamente', () => {
+      cy.visit('/auth/login');
+      cy.get('input[type="email"]').type('owner@familia-souza.local');
+      cy.get('input[type="password"]').type('senha-correta');
+      cy.contains('button', 'Entrar').click();
+      cy.wait('@login');
+
+      // Deve estar na pagina de boas-vindas
+      cy.url().should('match', /^http:\/\/localhost:\d+\/$/);
+      cy.contains('Por onde começamos?').should('be.visible');
+
+      // Botao de enviar documento visivel
+      cy.contains('button', 'Enviar documento').should('be.visible');
+    });
+
+    it('navega do welcome para o dashboard quando ja tem dados', () => {
+      cy.visit('/auth/login');
+      cy.get('input[type="email"]').type('owner@familia-souza.local');
+      cy.get('input[type="password"]').type('senha-correta');
+      cy.contains('button', 'Entrar').click();
+      cy.wait('@login');
+      cy.wait('@profile');
+
+      // Card "Ver diagnostico" deve aparecer porque ha dados
+      cy.contains('Ver diagnostico atual').should('be.visible');
+      cy.contains('button', 'Acessar dashboard').click();
+
+      cy.wait('@diagnosis');
+      cy.url().should('include', '/dashboard');
+      cy.contains('Diagnostico financeiro').should('be.visible');
+    });
+
+    it('exibe narrativa e alerta de atraso no dashboard', () => {
+      // Override para cenario com divida em atraso
+      cy.intercept('GET', 'http://localhost:3001/api/diagnosis/explained', {
+        monthlyIncome: 4800, monthlyDebtPayments: 2500, dtiPercent: 52,
+        classification: 'high-risk', totalDebtBalance: 30000,
+        classificationLabel: 'Risco elevado',
+        classificationSummary: 'Mais da metade da renda esta comprometida com dividas.',
+        situationNarrative: 'Voce esta comprometendo 52% da sua renda com dividas.',
+        firstRecommendedAction: 'Priorize quitar a divida com maior taxa de juros.',
+        overdueDebtsCount: 2,
+        monthlySurplus: 2300,
+        essentialMonthlyObligations: 2500
+      }).as('diagnosisExplainedOverride');
+
+      cy.visit('/auth/login');
+      cy.get('input[type="email"]').type('owner@familia-souza.local');
+      cy.get('input[type="password"]').type('senha-correta');
+      cy.contains('button', 'Entrar').click();
+      cy.wait('@login');
+
+      cy.visit('/dashboard');
+      cy.wait('@diagnosis');
+
+      cy.contains('Diagnostico financeiro').should('be.visible');
+    });
+
+    it('exibe a tela de revisao de itens extraidos', () => {
+      const documentId = 'doc-review-test-001';
+
+      cy.intercept('GET', `http://localhost:3001/api/documents/${documentId}/items`, {
+        documentId,
+        totalItems: 3,
+        pendingReview: 2,
+        groups: {
+          'income': [
+            { id: 'item-1', item_type: 'income', description: 'Salario', amount: 4800,
+              occurred_at: '2025-01-05', creditor: null, ai_confidence: 0.95, ai_category: 'income', review_status: 'pending' }
+          ],
+          'debt-installment': [
+            { id: 'item-2', item_type: 'debt-installment', description: 'Parcela emprestimo Banco A',
+              amount: 300, occurred_at: '2025-01-10', creditor: 'Banco A', ai_confidence: 0.87, ai_category: 'debt', review_status: 'pending' },
+            { id: 'item-3', item_type: 'debt-installment', description: 'Cartao credito',
+              amount: 250, occurred_at: '2025-01-15', creditor: 'Cartao B', ai_confidence: 0.72, ai_category: 'debt', review_status: 'approved' }
+          ]
+        }
+      }).as('items');
+
+      cy.visit(`/review/${documentId}`);
+      cy.wait('@items');
+
+      cy.contains('Itens identificados pela IA').should('be.visible');
+      cy.contains('3 itens encontrados').should('be.visible');
+      cy.contains('2 aguardando revisao').should('be.visible');
+    });
+
+    it('exibe a pagina de plano com comparativo avalanche x bola de neve', () => {
+      cy.intercept('GET', 'http://localhost:3001/api/plans/comparison/explained', {
+        recommendedStrategy: 'avalanche',
+        recommendationReason: 'Com DTI abaixo de 35%, o Avalanche economiza mais em juros.',
+        essentialMonthlyObligations: 300,
+        surplusAfterEssentials: 4500,
+        avalanche: {
+          strategy: 'avalanche',
+          strategyLabel: 'Metodo Avalanche',
+          whyThisStrategy: 'Voce paga menos juros no total.',
+          firstActionLabel: 'Pague R$ 300/mes no Banco A.',
+          monthlySurplus: 4500,
+          installments: [{ creditor: 'Banco A', recommendedPayment: 300, priority: 1, rationale: 'Maior taxa de juros' }],
+          estimatedMonthsToDebtFree: 18,
+          totalInterestPaid: 900
+        },
+        snowball: {
+          strategy: 'snowball',
+          strategyLabel: 'Metodo Bola de Neve',
+          whyThisStrategy: 'Voce quita dividas menores logo e ganha motivacao.',
+          firstActionLabel: 'Pague R$ 300/mes no Banco A.',
+          monthlySurplus: 4500,
+          installments: [{ creditor: 'Banco A', recommendedPayment: 300, priority: 1, rationale: 'Menor saldo devedor' }],
+          estimatedMonthsToDebtFree: 18,
+          totalInterestPaid: 950
+        }
+      }).as('plansExplained');
+
+      cy.visit('/plan');
+
+      cy.contains('Seu plano de quitação de dívidas').should('be.visible');
+      cy.wait('@plansExplained');
+
+      cy.contains('Estrategia recomendada').should('be.visible');
+      cy.contains('Metodo Avalanche').should('be.visible');
+      cy.contains('Metodo Bola de Neve').should('be.visible');
+      cy.contains('Recomendado').should('be.visible');
     });
   });

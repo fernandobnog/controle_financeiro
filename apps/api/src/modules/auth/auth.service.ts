@@ -11,6 +11,7 @@ import type {
 import { authMessageSchema, passwordRecoveryRequestResultSchema, sessionSchema } from '@controle-financeiro/shared-contracts';
 import type { FastifyRequest } from 'fastify';
 
+import { env } from '../../infra/env.js';
 import { getDatabasePool, queryDatabase } from '../../infra/db/database.js';
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 12;
@@ -61,11 +62,11 @@ type RequestWithAuth = FastifyRequest & {
 };
 
 const getAuthSecret = (): string => {
-  if (process.env.APP_AUTH_SECRET) {
-    return process.env.APP_AUTH_SECRET;
+  if (env.APP_AUTH_SECRET) {
+    return env.APP_AUTH_SECRET;
   }
 
-  if (process.env.NODE_ENV === 'production') {
+  if (env.NODE_ENV === 'production') {
     throw new Error('APP_AUTH_SECRET deve ser configurado em producao.');
   }
 

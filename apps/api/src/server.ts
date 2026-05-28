@@ -1,7 +1,8 @@
 import { buildApp } from './app.js';
+import { env } from './infra/env.js';
 
-const port = Number(process.env.PORT ?? '3001');
-const host = process.env.HOST ?? '0.0.0.0';
+const port = env.PORT;
+const host = env.HOST;
 
 const start = async () => {
   const app = buildApp();

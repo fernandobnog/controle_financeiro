@@ -46,10 +46,10 @@
       </Card>
 
       <aside class="auth-hero page-panel">
-        <p class="app-shell__eyebrow">Sessao segura</p>
-        <h1>Redefinicao concluida com autenticacao imediata.</h1>
+        <p class="app-shell__eyebrow">Sessão segura</p>
+        <h1>Redefinição concluída com autenticação imediata.</h1>
         <p class="panel-note auth-hero__note">
-          Depois da troca, uma nova sessao autenticada e criada para voce retomar dashboard, onboarding e revisao de documentos.
+          Depois da troca, uma nova sessão autenticada é criada para você retomar dashboard, onboarding e revisão de documentos.
         </p>
       </aside>
     </div>
@@ -97,7 +97,7 @@ export default defineComponent({
   methods: {
     async submitReset() {
       if (this.form.newPassword !== this.confirmPassword) {
-        this.errorMessage = 'A confirmacao da nova senha precisa ser igual.';
+        this.errorMessage = 'A confirmação da nova senha precisa ser igual.';
         return;
       }
 

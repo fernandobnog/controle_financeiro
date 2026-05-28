@@ -6,6 +6,7 @@ import type {
   DocumentReview,
   FileServerUploadReceipt,
   FinancialDiagnosisSummary,
+  FinancialDiagnosisExplained,
   FinancialCase,
   LoginInput,
   OnboardingProfileInput,
@@ -13,6 +14,8 @@ import type {
   PasswordRecoveryRequestResult,
   PasswordResetInput,
   PlanComparison,
+  PlanComparisonExplained,
+  ReviewItemInput,
   RegisterDocumentInput,
   RegisterInput,
   Session,
@@ -117,7 +120,9 @@ export const saveOnboardingProfile = (payload: OnboardingProfileInput) =>
   });
 
 export const getDiagnosisSummary = () => fetchJson<FinancialDiagnosisSummary>('/diagnosis/summary');
+export const getDiagnosisExplained = () => fetchJson<FinancialDiagnosisExplained>('/diagnosis/explained');
 export const getPlanComparison = () => fetchJson<PlanComparison>('/plans/comparison');
+export const getPlanComparisonExplained = () => fetchJson<PlanComparisonExplained>('/plans/comparison/explained');
 export const getDocuments = () => fetchJson<DocumentListItem[]>('/documents');
 export const getDocumentReview = (documentId: string) =>
   fetchJson<DocumentReview>(`/documents/${documentId}/review`);
@@ -133,6 +138,46 @@ export const updateDocumentOcrEntry = (
 ) =>
   fetchJson<DocumentReview>(`/documents/${documentId}/ocr-entries/${entryId}`, {
     method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+
+interface ExtractedItemsResponse {
+  documentId: string;
+  totalItems: number;
+  pendingReview: number;
+  groups: Record<string, unknown[]>;
+}
+
+interface PipelineStatusResponse {
+  status: string;
+  detail: string | null;
+  timestamp: string;
+}
+
+interface ReviewItemResponse {
+  itemId: string;
+  decision: string;
+  pendingItemsRemaining: number;
+}
+
+export const getDocumentItems = (documentId: string) =>
+  fetchJson<ExtractedItemsResponse>(`/documents/${documentId}/items`);
+
+export const getPipelineStatus = (documentId: string) =>
+  fetchJson<PipelineStatusResponse>(`/documents/${documentId}/pipeline-status`);
+
+export const reviewExtractedItem = (documentId: string, itemId: string, payload: ReviewItemInput) =>
+  fetchJson<ReviewItemResponse>(`/documents/${documentId}/items/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+
+export const processDocument = (
+  documentId: string,
+  payload: { mimeType: string; filename: string; fileBase64: string; householdId?: string }
+) =>
+  fetchJson<{ documentId: string; message: string }>(`/documents/${documentId}/process`, {
+    method: 'POST',
     body: JSON.stringify(payload)
   });
 export const uploadFileToStorage = async (householdId: string, file: File): Promise<FileServerUploadReceipt> => {

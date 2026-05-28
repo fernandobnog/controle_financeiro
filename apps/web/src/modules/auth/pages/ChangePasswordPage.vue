@@ -47,7 +47,7 @@
       <p v-if="errorMessage" class="panel-error">{{ errorMessage }}</p>
 
       <div class="page-actions">
-        <span class="panel-note">A troca invalida tokens de recuperacao ainda abertos.</span>
+        <span class="panel-note">A troca invalida tokens de recuperação ainda abertos.</span>
         <Button type="submit" label="Atualizar senha" icon="pi pi-key" :loading="loading" />
       </div>
     </form>
@@ -82,7 +82,7 @@ export default defineComponent({
   methods: {
     async submitChangePassword() {
       if (this.form.newPassword !== this.confirmPassword) {
-        this.errorMessage = 'A confirmacao da nova senha precisa ser igual.';
+        this.errorMessage = 'A confirmação da nova senha precisa ser igual.';
         this.successMessage = '';
         return;
       }

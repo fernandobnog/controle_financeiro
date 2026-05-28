@@ -243,3 +243,37 @@ flowchart LR
 - Sem acoplamento da API ao mecanismo interno do file server.
 - Sem aceitar payload de OCR sem validação e sanitização.
 - Sem compose principal acima de `2` vCPUs e `1 GiB` de RAM.
+
+## Pipeline de processamento de documentos
+
+O fluxo de processamento segue as etapas abaixo. Cada transição grava um evento em `document_pipeline_events` e atualiza `documents.pipeline_status`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> received: upload registrado
+    received --> stored: arquivo salvo no file-server
+    stored --> parse_submitted: LlamaParse iniciado
+    parse_submitted --> parse_completed: Markdown extraído
+    parse_completed --> classification_completed: OpenRouter classifica itens
+    classification_completed --> review_pending: extracted_items criados
+    review_pending --> review_partial: revisão parcial
+    review_partial --> consolidated: todos os itens revisados
+    review_pending --> consolidated: revisão concluída em uma etapa
+    consolidated --> [*]: alimenta diagnóstico e plano
+    parse_submitted --> rejected: erro irrecuperável
+    classification_completed --> rejected: falha de classificação
+```
+
+### Tabelas envolvidas
+
+| Tabela | Propósito |
+|--------|-----------|
+| `documents` | Registro do documento com status e metadados |
+| `document_pipeline_events` | Log imutável de cada transição de status |
+| `extracted_items` | Itens financeiros extraídos, com revisão humana |
+| `plan_versions` | Versões do plano gerado após consolidação |
+| `audit_events` | Trilha de ações sensíveis do usuário |
+
+### Modo mock
+
+Com `MOCK_EXTERNAL_SERVICES=true`, o pipeline retorna 3 itens fictícios sem chamar LlamaParse ou OpenRouter. Use este modo em desenvolvimento e em testes automatizados.

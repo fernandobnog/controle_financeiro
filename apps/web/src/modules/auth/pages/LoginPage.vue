@@ -5,20 +5,20 @@
         <p class="app-shell__eyebrow">Acesso seguro</p>
         <h1>Entre na sua conta e continue o plano financeiro.</h1>
         <p class="panel-note auth-hero__note">
-          O acesso fica restrito a dados da sua conta, com sessao autenticada para dashboard, revisao de OCR e documentos.
+          O acesso fica restrito a dados da sua conta, com sessão autenticada para dashboard, revisão de OCR e documentos.
         </p>
         <div class="auth-hero__highlights">
           <div class="auth-highlight">
             <i class="pi pi-shield"></i>
-            <span>Autorizacao por conta em toda leitura e escrita.</span>
+            <span>Autorização por conta em toda leitura e escrita.</span>
           </div>
           <div class="auth-highlight">
             <i class="pi pi-lock"></i>
-            <span>Documentos e planos disponiveis apenas para usuarios autenticados.</span>
+            <span>Documentos e planos disponíveis apenas para usuários autenticados.</span>
           </div>
           <div class="auth-highlight">
             <i class="pi pi-chart-line"></i>
-            <span>Diagnostico e revisao prontos para retomar do ponto em que voce parou.</span>
+            <span>Diagnóstico e revisão prontos para retomar do ponto em que você parou.</span>
           </div>
         </div>
       </aside>
@@ -53,7 +53,7 @@
             <Button type="submit" label="Entrar" icon="pi pi-sign-in" :loading="loading" />
 
             <p class="panel-note auth-form__footer">
-              Ainda nao tem conta?
+              Ainda não tem conta?
               <RouterLink :to="{ name: 'register' }">Criar cadastro</RouterLink>
             </p>
           </form>

@@ -13,14 +13,19 @@ import {
 import { diagnosisRoute } from './modules/diagnosis/diagnosis.route.js';
 import { healthRoute } from './modules/health/health.route.js';
 import { documentsRoute } from './modules/intake/documents.route.js';
+import { pipelineRoute } from './modules/intake/pipeline.route.js';
 import { onboardingRoute } from './modules/onboarding/onboarding.route.js';
 import { plansRoute } from './modules/plans/plans.route.js';
+
+// 15 MB allows up to 10 MB decoded files (base64 overhead ~33%) plus JSON framing
+const BODY_LIMIT_BYTES = 15 * 1024 * 1024;
 
 export const buildApp = () => {
   const app = fastify({
     logger: {
       level: 'info'
-    }
+    },
+    bodyLimit: BODY_LIMIT_BYTES
   });
 
   app.register(cors, {
@@ -79,6 +84,7 @@ export const buildApp = () => {
   app.register(authRoute, { prefix: '/api' });
   app.register(onboardingRoute, { prefix: '/api' });
   app.register(documentsRoute, { prefix: '/api' });
+  app.register(pipelineRoute, { prefix: '/api' });
   app.register(diagnosisRoute, { prefix: '/api' });
   app.register(plansRoute, { prefix: '/api' });
 

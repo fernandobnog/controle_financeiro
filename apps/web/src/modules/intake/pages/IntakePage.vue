@@ -2,8 +2,8 @@
   <section class="page-panel">
     <header class="page-panel__header">
       <div>
-        <h2>Ingestao e revisao de OCR</h2>
-        <p class="panel-note">Upload manual, leitura assistida e revisao humana antes da consolidacao financeira.</p>
+        <h2>Envio e revisão de documentos</h2>
+        <p class="panel-note">Envie extratos, faturas ou contratos. Os lançamentos extraídos ficam aqui para revisão antes de entrar no diagnóstico.</p>
       </div>
       <Tag :value="currentStatusLabel" :severity="currentStatusSeverity" />
     </header>
@@ -11,7 +11,7 @@
     <div class="review-toolbar">
       <FileUpload
         mode="basic"
-        chooseLabel="Selecionar documento"
+        chooseLabel="Escolher arquivo"
         customUpload
         auto
         :disabled="uploading"
@@ -23,7 +23,7 @@
 
     <div v-if="loading" class="page-panel">
       <ProgressSpinner strokeWidth="4" />
-      <p class="panel-note">Carregando documentos em revisao...</p>
+      <p class="panel-note">Carregando documentos em revisão...</p>
     </div>
 
     <div v-else-if="errorMessage" class="panel-error">{{ errorMessage }}</div>
@@ -42,7 +42,7 @@
       </aside>
 
       <Card>
-        <template #title>Linhas do OCR em revisao</template>
+        <template #title>Lançamentos extraídos — revisão pendente</template>
         <template #subtitle>
           <a v-if="reviewDocument?.signedDownloadUrl" :href="reviewDocument.signedDownloadUrl" target="_blank" rel="noreferrer">
             Abrir arquivo original
@@ -57,7 +57,7 @@
             responsiveLayout="scroll"
             @cell-edit-complete="onCellEditComplete"
           >
-            <Column field="description" header="Descricao">
+            <Column field="description" header="Descrição">
               <template #editor="slotProps">
                 <InputText v-model="slotProps.data[slotProps.field]" />
               </template>
@@ -78,13 +78,13 @@
                 <InputText v-model="slotProps.data[slotProps.field]" />
               </template>
             </Column>
-            <Column field="reviewed" header="Revisado">
+            <Column field="reviewed" header="Confirmado">
               <template #body="slotProps">
-                <Tag :value="slotProps.data.reviewed ? 'sim' : 'nao'" :severity="slotProps.data.reviewed ? 'success' : 'warning'" />
+                <Tag :value="slotProps.data.reviewed ? 'Sim' : 'Não'" :severity="slotProps.data.reviewed ? 'success' : 'warning'" />
               </template>
             </Column>
           </DataTable>
-          <p v-else class="panel-note">Selecione um documento para revisar as linhas extraidas.</p>
+          <p v-else class="panel-note">Selecione um documento na lista para revisar os lançamentos extraídos.</p>
         </template>
       </Card>
     </div>
@@ -149,12 +149,12 @@ export default defineComponent({
       loading: true,
       uploading: false,
       errorMessage: '',
-      uploadFeedback: 'Selecione um PDF ou imagem para enviar ao file server.'
+      uploadFeedback: 'Selecione um PDF ou imagem para enviar ao servidor de arquivos.'
     };
   },
   computed: {
     currentStatusLabel(): string {
-      return this.reviewDocument?.status ?? 'sem-documento';
+      return this.reviewDocument?.status ?? 'Sem documento';
     },
     currentStatusSeverity(): 'info' | 'warning' | 'success' | 'danger' | 'secondary' {
       switch (this.reviewDocument?.status) {
@@ -176,9 +176,13 @@ export default defineComponent({
   },
   methods: {
     async loadHouseholdContext() {
-      const profile = await getOnboardingProfile();
+      try {
+        const profile = await getOnboardingProfile();
 
-      this.householdId = profile.householdId;
+        this.householdId = profile.householdId;
+      } catch {
+        // Household ainda nao configurado — permite upload; o householdId sera recarregado no momento do envio.
+      }
     },
     async loadDocuments(preferredDocumentId?: string) {
       this.loading = true;
@@ -247,25 +251,31 @@ export default defineComponent({
         this.reviewDocument = updatedDocument;
       } catch (error) {
         event.data[event.field] = previousValue;
-        this.errorMessage = error instanceof Error ? error.message : 'Falha ao salvar a revisao do OCR.';
+        this.errorMessage = error instanceof Error ? error.message : 'Falha ao salvar a revisão do OCR.';
       }
     },
     async handleUpload(event: UploadEvent) {
       const firstFile = Array.isArray(event.files) ? event.files[0] : event.files;
 
       if (!(firstFile instanceof File)) {
-        this.errorMessage = 'Selecione um arquivo valido para upload.';
+        this.errorMessage = 'Selecione um arquivo válido para upload.';
         return;
       }
 
       if (!this.householdId) {
-        this.errorMessage = 'Conclua ou recarregue a base financeira antes de enviar documentos.';
-        return;
+        try {
+          const profile = await getOnboardingProfile();
+
+          this.householdId = profile.householdId;
+        } catch {
+          this.errorMessage = 'Não foi possível identificar a unidade familiar da conta. Verifique o cadastro e tente novamente.';
+          return;
+        }
       }
 
       this.uploading = true;
       this.errorMessage = '';
-      this.uploadFeedback = `Enviando ${firstFile.name} para o file server...`;
+this.uploadFeedback = `Enviando ${firstFile.name} para o servidor de arquivos...`;
 
       try {
         const storedFile = await uploadFileToStorage(this.householdId, firstFile);
@@ -278,11 +288,11 @@ export default defineComponent({
           signedDownloadUrl: storedFile.signedDownloadUrl
         });
 
-        this.uploadFeedback = `${document.filename} enviado e registrado para revisao.`;
+        this.uploadFeedback = `${document.filename} enviado e registrado para revisão.`;
         await this.loadDocuments(document.id);
       } catch (error) {
         this.errorMessage = error instanceof Error ? error.message : 'Falha ao enviar o documento.';
-        this.uploadFeedback = 'Selecione um PDF ou imagem para enviar ao file server.';
+        this.uploadFeedback = 'Selecione um PDF ou imagem para enviar ao servidor de arquivos.';
       } finally {
         this.uploading = false;
       }

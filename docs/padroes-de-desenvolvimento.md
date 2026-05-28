@@ -224,3 +224,39 @@ Quando uma decisão impactar muitas pastas ou times, registre em documento curto
 - Existem testes do comportamento principal.
 - O fluxo cabe no orçamento de CPU e RAM da stack padrão sem monopolizar um serviço.
 - A documentação relevante foi atualizada.
+
+## Diretrizes de microcopy para usuário leigo
+
+O sistema é destinado a famílias em situação de superendividamento — um público que pode ter baixa familiaridade com termos financeiros e está sob estresse. O texto da interface deve refletir isso.
+
+### Princípios
+
+- **Clareza acima de precisão técnica.** "Dívida mensal" é melhor que "saldo devedor corrente".
+- **Linguagem humana.** Evite jargões: DTI pode aparecer como "quanto da sua renda vai para dívidas".
+- **Tom empático, não alarmista.** Alertas de situação crítica devem ser honestos, mas nunca catastrofistas.
+- **Ação clara.** Cada tela deve ter uma e apenas uma ação principal evidente.
+
+### Exemplos de microcopy
+
+| Técnico (evitar) | Amigável (usar) |
+|-----------------|-----------------|
+| DTI: 52% — status: high-risk | 52% da sua renda vai para dívidas — situação que pede atenção imediata |
+| extracted_items pending review | A IA identificou itens — revise antes de salvar |
+| pipeline_status: consolidated | Documento processado com sucesso |
+| avalanche strategy recommended | Recomendamos o Método Avalanche: você paga menos juros no total |
+| monthly surplus: -R$ 800 | Atenção: suas dívidas superam a renda disponível em R$ 800 por mês |
+
+### Mensagens de erro
+
+- Erros de formulário: "Informe o valor mensal em reais, ex: 1500,00"
+- Erros de rede: "Não conseguimos processar agora. Tente novamente em instantes."
+- Erros de pipeline: "O processamento do documento encontrou um problema. Você pode reenviar ou preencher os dados manualmente."
+- Erros de autenticação: "Sessão encerrada. Faça login novamente para continuar."
+
+### Texto de espera (estados de loading)
+
+Use mensagens progressivas que deem contexto ao que está acontecendo:
+- "Enviando documento..."
+- "Extraindo informações com IA... (pode levar até 2 minutos)"
+- "Classificando itens identificados..."
+- "Calculando seu plano financeiro..."

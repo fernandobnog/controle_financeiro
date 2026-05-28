@@ -322,7 +322,7 @@ const main = async () => {
       AUTO_SEED_DB: 'true',
       DATABASE_URL: databaseUrl,
       HOST: '0.0.0.0',
-      MOCK_EXTERNAL_SERVICES: 'true',
+      MOCK_EXTERNAL_SERVICES: process.env.MOCK_EXTERNAL_SERVICES ?? 'true',
       NODE_ENV: 'development',
       PORT: apiPort
     }
@@ -338,9 +338,23 @@ const main = async () => {
         DATABASE_URL: databaseUrl,
         FILE_SERVER_URL: fileServerUrl,
         HOST: '0.0.0.0',
-        MOCK_EXTERNAL_SERVICES: 'true',
+        MOCK_EXTERNAL_SERVICES: process.env.MOCK_EXTERNAL_SERVICES ?? 'true',
         NODE_ENV: 'development',
-        PORT: apiPort
+        PORT: apiPort,
+        OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL ?? '',
+        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? '',
+        OPENROUTER_MODEL_DEFAULT: process.env.OPENROUTER_MODEL_DEFAULT ?? 'openai/gpt-4.1-mini',
+        OPENROUTER_HTTP_REFERER: process.env.OPENROUTER_HTTP_REFERER ?? '',
+        OPENROUTER_APP_TITLE: process.env.OPENROUTER_APP_TITLE ?? 'controle-financeiro',
+        LLAMAPARSE_BASE_URL: process.env.LLAMAPARSE_BASE_URL ?? '',
+        LLAMAPARSE_API_KEY: process.env.LLAMAPARSE_API_KEY ?? '',
+        LLAMAPARSE_RESULT_TYPE: process.env.LLAMAPARSE_RESULT_TYPE ?? 'markdown',
+        LLAMAPARSE_TIMEOUT_MS: process.env.LLAMAPARSE_TIMEOUT_MS ?? '120000',
+        LLAMAPARSE_POLL_INTERVAL_MS: process.env.LLAMAPARSE_POLL_INTERVAL_MS ?? '2000',
+        COGNEE_BASE_URL: process.env.COGNEE_BASE_URL ?? '',
+        COGNEE_API_KEY: process.env.COGNEE_API_KEY ?? '',
+        COGNEE_PROJECT_ID: process.env.COGNEE_PROJECT_ID ?? '',
+        COGNEE_TIMEOUT_MS: process.env.COGNEE_TIMEOUT_MS ?? '30000'
       }
     }),
     startPnpmProcess({

@@ -1,6 +1,7 @@
 import type { Pool, QueryResult, QueryResultRow } from 'pg';
 
 import { newDb } from 'pg-mem';
+import { env } from '../env.js';
 import { sqlMigrations } from './migrations.js';
 import { seedDatabase } from './seed.js';
 
@@ -21,13 +22,13 @@ const createPostgresPool = async (): Promise<Pool> => {
   const { Pool: PgPool } = await import('pg');
   const pool = new PgPool({
     connectionString:
-      process.env.DATABASE_URL ??
+      env.DATABASE_URL ??
       'postgresql://controle_financeiro:controle_financeiro_dev@localhost:5432/controle_financeiro_dev'
   });
 
   await runMigrations(pool);
 
-  if (process.env.AUTO_SEED_DB === 'true') {
+  if (env.AUTO_SEED_DB) {
     await seedDatabase(pool);
   }
 
@@ -66,7 +67,7 @@ const runMigrations = async (pool: Pool): Promise<void> => {
 };
 
 const createDatabase = async (): Promise<Pool> => {
-  if (process.env.NODE_ENV === 'test' || !process.env.DATABASE_URL) {
+  if (env.NODE_ENV === 'test' || !env.DATABASE_URL) {
     return createMemoryPool();
   }
 

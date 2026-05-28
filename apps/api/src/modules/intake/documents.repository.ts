@@ -10,6 +10,8 @@ import type {
 } from '@controle-financeiro/shared-contracts';
 
 import { getDatabasePool, queryDatabase } from '../../infra/db/database.js';
+import { env } from '../../infra/env.js';
+import * as llamaparse from '../../infra/clients/llamaparse.js';
 import { AccountScopeError, resolveHouseholdId } from '../households/household.repository.js';
 
 interface DocumentRow {
@@ -67,7 +69,7 @@ const mapDocumentReview = (row: DocumentRow, ocrEntries: OcrEntry[]): DocumentRe
   ocrEntries
 });
 
-const createInitialOcrEntries = (documentId: string, filename: string): OcrEntry[] => {
+const createPlaceholderOcrEntries = (documentId: string, filename: string): OcrEntry[] => {
   const today = new Date().toISOString().slice(0, 10);
 
   return [
@@ -88,6 +90,43 @@ const createInitialOcrEntries = (documentId: string, filename: string): OcrEntry
       reviewed: false
     }
   ];
+};
+
+const buildOcrEntriesFromMarkdown = (documentId: string, markdown: string): OcrEntry[] => {
+  // Extrai linhas de tabela Markdown no formato: | data | descricao | valor |
+  // Linhas invalidas sao descartadas; a funcao retorna ao menos um placeholder se nenhuma linha for valida.
+  const today = new Date().toISOString().slice(0, 10);
+  const tableRowPattern = /^\|(.+)\|(.+)\|(.+)\|/u;
+  const entries: OcrEntry[] = [];
+
+  for (const line of markdown.split('\n')) {
+    const match = tableRowPattern.exec(line.trim());
+
+    if (!match) {
+      continue;
+    }
+
+    const [, col1, col2, col3] = match.map((cell) => cell.trim());
+
+    // Ignorar linhas de cabecalho e separadores
+    if (!col1 || col1.startsWith('-') || col1.toLowerCase().includes('data')) {
+      continue;
+    }
+
+    const rawAmount = col3?.replace(/[^0-9.,-]/gu, '').replace(',', '.') ?? '0';
+    const amount = Number.isFinite(Number(rawAmount)) ? Number(rawAmount) : 0;
+
+    entries.push({
+      id: randomUUID(),
+      description: col2 ?? col1,
+      amount,
+      occurredAt: col1.match(/\d{4}-\d{2}-\d{2}/u)?.[0] ?? today,
+      category: 'unclassified',
+      reviewed: false
+    });
+  }
+
+  return entries.length > 0 ? entries : createPlaceholderOcrEntries(documentId, 'documento-parseado');
 };
 
 const getScopedDocumentRow = async (accountId: string, documentId: string): Promise<DocumentRow | null> => {
@@ -168,7 +207,6 @@ export const registerDocument = async (accountId: string, input: RegisterDocumen
   const pool = await getDatabasePool();
   const client = await pool.connect();
   const documentId = randomUUID();
-  const initialEntries = createInitialOcrEntries(documentId, input.filename);
 
   try {
     await client.query('BEGIN');
@@ -230,7 +268,26 @@ export const registerDocument = async (accountId: string, input: RegisterDocumen
     );
 
     if (Number(ocrCountResult.rows[0]?.count ?? 0) === 0) {
-      for (const entry of initialEntries) {
+      let entries: OcrEntry[];
+
+      if (env.MOCK_EXTERNAL_SERVICES) {
+        entries = createPlaceholderOcrEntries(existingDocument.id, input.filename);
+      } else {
+        try {
+          const jobId = await llamaparse.submitDocument(
+            Buffer.alloc(0),
+            input.mimeType,
+            input.filename
+          );
+          const result = await llamaparse.pollJobResult(jobId);
+
+          entries = buildOcrEntriesFromMarkdown(existingDocument.id, result.markdown);
+        } catch {
+          entries = createPlaceholderOcrEntries(existingDocument.id, input.filename);
+        }
+      }
+
+      for (const entry of entries) {
         await client.query(
           `
             INSERT INTO ocr_entries (id, document_id, description, amount, occurred_at, category, reviewed)

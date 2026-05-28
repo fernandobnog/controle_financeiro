@@ -160,5 +160,90 @@ export const sqlMigrations: SqlMigration[] = [
       CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens (user_id);
       CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens (expires_at);
     `
+  },
+  {
+    name: '004-domain-expansion',
+    sql: `
+      -- Tipo do documento e metadados de processamento na tabela documents
+      ALTER TABLE documents ADD COLUMN IF NOT EXISTS document_type TEXT NOT NULL DEFAULT 'unknown';
+      ALTER TABLE documents ADD COLUMN IF NOT EXISTS page_count INTEGER;
+      ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_hash TEXT;
+      ALTER TABLE documents ADD COLUMN IF NOT EXISTS pipeline_status TEXT NOT NULL DEFAULT 'received';
+      ALTER TABLE documents ADD COLUMN IF NOT EXISTS pipeline_error TEXT;
+
+      -- Itens extraídos pelo pipeline de IA (separados das entidades consolidadas)
+      CREATE TABLE IF NOT EXISTS extracted_items (
+        id TEXT PRIMARY KEY,
+        document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        item_type TEXT NOT NULL,
+        description TEXT NOT NULL,
+        amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+        occurred_at DATE,
+        recurrence TEXT,
+        creditor TEXT,
+        ai_confidence NUMERIC(4, 3) NOT NULL DEFAULT 0,
+        ai_category TEXT,
+        review_status TEXT NOT NULL DEFAULT 'pending',
+        review_decision TEXT,
+        reviewed_by TEXT REFERENCES users(id),
+        reviewed_at TIMESTAMPTZ,
+        consolidated_entity_type TEXT,
+        consolidated_entity_id TEXT,
+        source_page INTEGER,
+        raw_text TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Eventos do pipeline de processamento por documento
+      CREATE TABLE IF NOT EXISTS document_pipeline_events (
+        id TEXT PRIMARY KEY,
+        document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        event_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        detail TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Versões de plano financeiro (histórico)
+      CREATE TABLE IF NOT EXISTS plan_versions (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        strategy TEXT NOT NULL,
+        extra_payment NUMERIC(12, 2) NOT NULL DEFAULT 0,
+        monthly_income NUMERIC(12, 2) NOT NULL DEFAULT 0,
+        monthly_debt_payments NUMERIC(12, 2) NOT NULL DEFAULT 0,
+        dti_percent NUMERIC(8, 4) NOT NULL DEFAULT 0,
+        classification TEXT NOT NULL,
+        active BOOLEAN NOT NULL DEFAULT FALSE,
+        payload JSONB NOT NULL DEFAULT '{}',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Eventos de auditoria para revisões sensíveis
+      CREATE TABLE IF NOT EXISTS audit_events (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        household_id TEXT REFERENCES households(id) ON DELETE SET NULL,
+        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        event_type TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        before_state JSONB,
+        after_state JSONB,
+        ip_address TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_extracted_items_document_id ON extracted_items (document_id);
+      CREATE INDEX IF NOT EXISTS idx_extracted_items_household_id ON extracted_items (household_id);
+      CREATE INDEX IF NOT EXISTS idx_extracted_items_review_status ON extracted_items (review_status);
+      CREATE INDEX IF NOT EXISTS idx_document_pipeline_events_document_id ON document_pipeline_events (document_id);
+      CREATE INDEX IF NOT EXISTS idx_plan_versions_household_id ON plan_versions (household_id);
+      CREATE INDEX IF NOT EXISTS idx_plan_versions_active ON plan_versions (active);
+      CREATE INDEX IF NOT EXISTS idx_audit_events_account_id ON audit_events (account_id);
+      CREATE INDEX IF NOT EXISTS idx_audit_events_entity ON audit_events (entity_type, entity_id);
+    `
   }
 ];
