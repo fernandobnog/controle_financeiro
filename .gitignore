@@ -24,3 +24,4 @@ infra/compose/env/*.env
 
 postgres-data/
 minio-data/
+.cache/
