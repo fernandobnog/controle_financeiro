@@ -1,0 +1,42 @@
+services:
+  web:
+    build:
+      target: development
+    working_dir: /workspace
+    command: sh -lc "pnpm --filter @controle-financeiro/web dev"
+    ports:
+      - '3000:3000'
+    volumes:
+      - ../..:/workspace
+      - workspace-node-modules:/workspace/node_modules
+      - web-node-modules:/workspace/apps/web/node_modules
+      - shared-contracts-node-modules:/workspace/packages/shared-contracts/node_modules
+
+  api:
+    build:
+      target: development
+    working_dir: /workspace
+    command: sh -lc "pnpm --filter @controle-financeiro/api db:setup && pnpm --filter @controle-financeiro/api dev"
+    ports:
+      - '3001:3001'
+    volumes:
+      - ../..:/workspace
+      - workspace-node-modules:/workspace/node_modules
+      - api-node-modules:/workspace/apps/api/node_modules
+      - finance-core-node-modules:/workspace/packages/finance-core/node_modules
+      - shared-contracts-node-modules:/workspace/packages/shared-contracts/node_modules
+
+  file-server:
+    build:
+      target: development
+    working_dir: /workspace/apps/file-server
+    command: sh -lc "rm -f tmp/pids/server.pid && bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0 -p 3002"
+    ports:
+      - '3002:3002'
+    volumes:
+      - ../../apps/file-server:/workspace/apps/file-server
+
+  minio:
+    ports:
+      - '9000:9000'
+      - '9001:9001'

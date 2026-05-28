@@ -1,0 +1,33 @@
+{
+  "name": "@controle-financeiro/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "pnpm --filter @controle-financeiro/shared-contracts build && vue-tsc --noEmit && vite build",
+    "typecheck": "pnpm --filter @controle-financeiro/shared-contracts build && vue-tsc --noEmit",
+    "lint": "eslint src vite.config.ts --max-warnings 0",
+    "test": "node ./scripts/run-e2e.mjs",
+    "test:e2e": "cypress run --e2e --browser electron",
+    "test:e2e:install": "cypress install",
+    "cypress:open": "cypress open",
+    "format": "prettier --check \"src/**/*.{ts,vue,css}\""
+  },
+  "dependencies": {
+    "@controle-financeiro/shared-contracts": "workspace:*",
+    "apexcharts": "^4.7.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^3.53.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1",
+    "vue3-apexcharts": "1.8.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "cypress": "^14.5.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vue-tsc": "^2.2.10"
+  }
+}

@@ -1,0 +1,16 @@
+.git
+.github
+.turbo
+node_modules
+**/node_modules
+dist
+build
+coverage
+tmp
+
+apps/file-server/log
+apps/file-server/tmp
+apps/file-server/storage
+apps/file-server/vendor/bundle
+
+infra/compose/env/*.env

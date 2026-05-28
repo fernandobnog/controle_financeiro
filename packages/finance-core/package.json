@@ -1,0 +1,27 @@
+{
+  "name": "@controle-financeiro/finance-core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm --filter @controle-financeiro/shared-contracts build && tsc -p tsconfig.json",
+    "typecheck": "pnpm --filter @controle-financeiro/shared-contracts build && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "test": "tsx --test src/**/*.test.ts",
+    "format": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@controle-financeiro/shared-contracts": "workspace:*",
+    "decimal.js": "^10.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

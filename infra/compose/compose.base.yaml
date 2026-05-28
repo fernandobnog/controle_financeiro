@@ -1,0 +1,175 @@
+name: controle-financeiro
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+    env_file:
+      - ./env/app.env.example
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - controle-financeiro
+    cpus: 0.20
+    mem_limit: 128m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 128M
+    healthcheck:
+      test:
+        ['CMD', 'sh', '-lc', "wget -qO- http://127.0.0.1:3000/health >/dev/null 2>&1 || node -e \"fetch('http://127.0.0.1:3000').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *default-logging
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    env_file:
+      - ./env/app.env.example
+      - ./env/db.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - controle-financeiro
+    cpus: 0.45
+    mem_limit: 192m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.45'
+          memory: 192M
+    healthcheck:
+      test:
+        ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *default-logging
+
+  file-server:
+    build:
+      context: ../..
+      dockerfile: infra/docker/file-server.Dockerfile
+    env_file:
+      - ./env/app.env.example
+      - ./env/db.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - file-server-storage:/workspace/apps/file-server/storage
+    networks:
+      - controle-financeiro
+    cpus: 0.25
+    mem_limit: 192m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 192M
+    healthcheck:
+      test:
+        ['CMD', 'ruby', '-rnet/http', '-ruri', '-e', "response = Net::HTTP.get_response(URI('http://127.0.0.1:3002/api/health')); exit(response.is_a?(Net::HTTPSuccess) ? 0 : 1)"]
+      interval: 25s
+      timeout: 8s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    stop_grace_period: 20s
+    logging: *default-logging
+
+  postgres:
+    image: postgres:16-alpine
+    env_file:
+      - ./env/db.env.example
+    command:
+      - postgres
+      - -c
+      - shared_buffers=96MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=40
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - controle-financeiro
+    cpus: 0.55
+    mem_limit: 320m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.55'
+          memory: 320M
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    stop_grace_period: 20s
+    logging: *default-logging
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    env_file:
+      - ./env/storage.env.example
+    command: server /data --console-address ':9001'
+    volumes:
+      - minio-data:/data
+    networks:
+      - controle-financeiro
+    cpus: 0.10
+    mem_limit: 64m
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 64M
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:9000/minio/health/live']
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *default-logging
+
+volumes:
+  postgres-data:
+  minio-data:
+  pnpm-store:
+  workspace-node-modules:
+  web-node-modules:
+  api-node-modules:
+  finance-core-node-modules:
+  shared-contracts-node-modules:
+  file-server-storage:
+
+networks:
+  controle-financeiro:
+    driver: bridge

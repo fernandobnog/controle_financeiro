@@ -1,0 +1,22 @@
+services:
+  api:
+    build:
+      target: development
+    working_dir: /workspace
+    command: sh -lc "pnpm install --frozen-lockfile=false && pnpm --filter @controle-financeiro/api test"
+    volumes:
+      - ../..:/workspace
+      - pnpm-store:/pnpm
+      - api-node-modules:/workspace/apps/api/node_modules
+
+  web:
+    profiles: ['disabled']
+
+  file-server:
+    profiles: ['disabled']
+
+  postgres:
+    profiles: ['disabled']
+
+  minio:
+    profiles: ['disabled']

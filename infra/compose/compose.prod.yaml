@@ -1,0 +1,35 @@
+services:
+  web:
+    build:
+      target: production
+    ports:
+      - '3000:3000'
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+
+  api:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+    ports:
+      - '3001:3001'
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  file-server:
+    build:
+      target: production
+    environment:
+      RAILS_ENV: production
+    ports:
+      - '3002:3002'
+
+  postgres:
+    ports: []
+
+  minio:
+    ports: []
