@@ -8,6 +8,7 @@ Estabelecer um conjunto de práticas que reduza retrabalho, preserve consistênc
 
 - Uma única fonte de verdade para cálculos financeiros.
 - Contratos explícitos entre frontend, backend e file server.
+- Menor privilégio e menor superfície de dados por padrão.
 - Validação forte nas bordas e lógica pura no núcleo.
 - Fail-fast para inconsistência de dados, com mensagem segura para o usuário.
 - Segurança por padrão em armazenamento, transporte e persistência.
@@ -45,6 +46,9 @@ Estabelecer um conjunto de práticas que reduza retrabalho, preserve consistênc
 - Estrutura orientada a feature em `modules/`.
 - Componentes reutilizáveis em `shared/components`.
 - Chamadas HTTP concentradas em `shared/api`.
+- Todo texto visível ao usuário deve estar em português do Brasil (`pt-BR`), com acentuação correta e linguagem natural.
+- Botões, labels, placeholders, mensagens de validação, mensagens de erro, notificações, títulos, subtítulos e qualquer microcopy da interface devem seguir `pt-BR` consistente.
+- Fluxos autenticados devem depender do contexto de sessão do usuário, nunca de identificadores inferidos apenas pela URL ou pela tela.
 - Regras financeiras ficam fora dos componentes e, sempre que possível, no pacote compartilhado.
 
 ### Backend
@@ -53,6 +57,9 @@ Estabelecer um conjunto de práticas que reduza retrabalho, preserve consistênc
 - Controllers não fazem cálculo financeiro.
 - Services não conhecem detalhes de transporte HTTP.
 - Repositories não recebem strings SQL montadas manualmente.
+- Toda rota funcional deve validar identidade autenticada e autorização por recurso antes de consultar ou persistir dados.
+- Defina DTOs distintos para listagem, detalhe, criação e atualização quando o frontend não precisar do agregado completo.
+- Nunca envie campos internos, IDs de correlação, dados sensíveis ou coleções completas se a UI consome apenas um resumo.
 - Integrações externas devem ter client dedicado, timeout e tratamento de erro.
 - Para dados potencialmente grandes, prefira paginação, stream, cursor ou processamento em lotes.
 - Evite carregar OCR bruto, listas extensas ou arquivos completos em memória do processo.
@@ -70,6 +77,8 @@ Estabelecer um conjunto de práticas que reduza retrabalho, preserve consistênc
 - Gere tipos a partir desses schemas para reduzir drift entre frontend e backend.
 - Toda entrada externa deve ser validada antes de entrar na regra de negócio.
 - Todo payload de OCR deve passar por sanitização e revisão antes da consolidação definitiva.
+- Modele contratos de leitura e escrita separadamente quando isso reduzir overfetching, underfetching ou exposição de campos desnecessários.
+- O contrato de resposta deve nascer da necessidade real da tela consumidora, não do formato interno da entidade persistida.
 
 ## Padrões de dados e banco
 
@@ -85,7 +94,61 @@ Estabelecer um conjunto de práticas que reduza retrabalho, preserve consistênc
 - Respostas externas não devem expor stack trace, SQL ou detalhes internos.
 - Logs devem ser estruturados, com `requestId`, módulo e tipo de evento.
 - Eventos sensíveis devem gerar auditoria mínima.
+- Eventos de cadastro, login, falha de autenticação e negação de acesso devem ser auditáveis.
 - Integrações externas devem registrar tempo de resposta, falha e contexto de correlação.
+
+## Checklist de segurança por feature
+
+### Perguntas obrigatórias
+
+- Qual é a origem de cada dado e qual fronteira de confiança ele cruza.
+- Quem pode executar a ação e qual autorização por recurso deve ser exigida.
+- Existe validação server-side para todos os campos, mesmo quando a interface já valida.
+- Quais limites impedem abuso: payload, upload, paginação, taxa, timeout, tentativas, concorrência e volume processado.
+- Há tokens, segredos, PII ou dados financeiros sensíveis no fluxo.
+- O que acontece se OCR, arquivo ou integração externa devolver dado malicioso, incompleto ou excessivo.
+- Quais logs, métricas, auditorias e mensagens de erro serão emitidos sem vazar dados internos.
+- A operação precisa ser idempotente e como replay, duplicidade e reprocessamento serão tratados.
+
+### APIs e comportamentos inseguros a evitar
+
+- Nunca interpolar valores diretamente em SQL; use queries parametrizadas e allowlist para ordenação, filtros e nomes dinâmicos.
+- Não usar `eval`, `new Function`, `vm`, desserialização de conteúdo não confiável ou execução dinâmica equivalente.
+- Não usar `child_process.exec` ou `execSync` com entrada controlada por usuário.
+- Não renderizar HTML cru com `v-html`, `innerHTML` ou equivalente sem sanitização estrita.
+- Não montar paths ou URLs a partir de entrada externa sem normalização, allowlist e proteção contra path traversal e SSRF.
+- Não gerar tokens, códigos ou segredos com fontes não criptográficas como `Math.random()`.
+- Não confiar apenas em validação client-side, MIME enviado pelo cliente ou extensão do arquivo.
+
+### Controle de tokens e segredos
+
+- Nunca hardcode segredos, tokens, credenciais, chaves privadas ou exemplos reais em código, docs, logs, fixtures ou commits.
+- Mascare segredos em logs, traces, dashboards, mensagens de erro e trilhas de auditoria.
+- Use menor privilégio, TTL curto, rotação, revogação e escopos mínimos.
+- Valide assinatura, expiração, `issuer`, `audience` e escopos antes de confiar em um token.
+- Em aplicações web, prefira cookies `HttpOnly`, `Secure` e `SameSite` ou armazenamento transitório para credenciais.
+- Separe credenciais por ambiente, serviço e finalidade; não reutilize credenciais administrativas no fluxo da aplicação.
+
+### Limites e validações para todos os campos
+
+- Strings: `trim`, normalização, tamanho mínimo e máximo, charset permitido, regex ou allowlist e rejeição de caracteres de controle indevidos.
+- Números e valores monetários: tipo, faixa, sinal permitido, precisão, escala, arredondamento consistente e rejeição de `NaN` ou `Infinity`.
+- Datas: formato, timezone, faixa aceitável e coerência entre início e fim, vencimento e pagamento ou datas equivalentes.
+- Booleanos e enums: aceitar somente valores explícitos, sem fallback silencioso.
+- Arrays e objetos: limitar quantidade de itens, profundidade, cardinalidade, campos desconhecidos, duplicidade e tamanho total do payload.
+- Arquivos: validar extensão, MIME, assinatura mágica, tamanho, quantidade, páginas ou dimensões e nome seguro.
+- OCR e IA: validar schema, campos obrigatórios, faixas numéricas, comprimentos, confiança mínima e revisão humana quando houver ambiguidade relevante.
+- Headers, params, query string, body, variáveis de ambiente e metadados de arquivo devem seguir validação server-side explícita.
+
+### Comportamentos de sistema seguros
+
+- Encapsular I/O e integrações externas com timeout, retry com backoff, circuit breaker quando aplicável e limite de concorrência.
+- Aplicar rate limiting, paginação com teto, limites de busca e proteção contra enumeração.
+- Usar idempotência em operações críticas de escrita, upload, processamento e reprocessamento.
+- Validar uploads por tamanho, MIME, assinatura, quantidade e origem; tratar OCR e integrações externas como não confiáveis.
+- Falhar com segurança: encerrar fluxos inválidos cedo, registrar o incidente internamente e responder com mensagem neutra ao usuário.
+- Desativar debug verboso em produção e nunca expor stack trace, queries SQL, tokens ou detalhes internos ao cliente.
+- Registrar eventos de segurança e auditoria mínima sem armazenar segredos nem PII desnecessária.
 
 ## Estratégia de testes
 
@@ -108,6 +171,7 @@ Estabelecer um conjunto de práticas que reduza retrabalho, preserve consistênc
 - Use Conventional Commits.
 - Nome de branch por intenção: `feat/`, `fix/`, `chore/`, `docs/`, `test/`.
 - Toda mudança relevante de arquitetura deve atualizar a documentação correspondente.
+- Requisitos de idioma que afetem a experiência final do produto devem ser documentados e preservados nos fluxos de UI, e-mail, notificações e mensagens exibidas ao usuário.
 - Pull requests devem descrever escopo, risco, estratégia de teste e impacto em segurança.
 
 ## Técnicas que aceleram o desenvolvimento com qualidade
@@ -152,8 +216,11 @@ Quando uma decisão impactar muitas pastas ou times, registre em documento curto
 
 - Existe contrato de entrada e saída.
 - Existe validação nas bordas.
+- Existe autenticação e autorização compatíveis com o recurso exposto.
+- A checklist de segurança da feature foi revisada, incluindo campos, limites, tokens, integrações e abuso.
 - A lógica financeira usa precisão decimal.
 - O erro é seguro e observável.
+- O endpoint envia e recebe apenas os campos estritamente necessários para a experiência do frontend.
 - Existem testes do comportamento principal.
 - O fluxo cabe no orçamento de CPU e RAM da stack padrão sem monopolizar um serviço.
 - A documentação relevante foi atualizada.

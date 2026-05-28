@@ -1,6 +1,6 @@
 import type { BudgetEnvelopeInput, DebtInput, IncomeInput } from '@controle-financeiro/shared-contracts';
 
-import { sumMoney, toMoney } from '../currency/decimal-utils.js';
+import { sumMoney, toDecimal, toMoney } from '../currency/decimal-utils.js';
 
 export interface BudgetAllocationResult {
   monthlyIncome: number;
@@ -27,7 +27,7 @@ export const allocateBudgetZero = ({ incomes, envelopes, debts }: AllocateBudget
     remainingAmount: toMoney(monthlyIncome.minus(allocatedAmount)),
     envelopes: envelopes.map((item) => ({
       ...item,
-      variance: toMoney((item.actualAmount ?? item.plannedAmount) - item.plannedAmount)
+      variance: toMoney(toDecimal(item.actualAmount ?? item.plannedAmount).minus(item.plannedAmount))
     }))
   };
 };

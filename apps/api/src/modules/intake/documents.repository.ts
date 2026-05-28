@@ -1,23 +1,26 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
-  DocumentRecord,
+  DocumentCreated,
+  DocumentListItem,
+  DocumentReview,
   OcrEntry,
   RegisterDocumentInput,
   UpdateOcrEntryInput
 } from '@controle-financeiro/shared-contracts';
 
 import { getDatabasePool, queryDatabase } from '../../infra/db/database.js';
-import { getPrimaryHouseholdId } from '../households/household.repository.js';
+import { AccountScopeError, resolveHouseholdId } from '../households/household.repository.js';
 
 interface DocumentRow {
   id: string;
+  account_id: string;
   household_id: string;
   file_server_document_id: string;
   filename: string;
   mime_type: string;
   size_in_bytes: number;
-  status: DocumentRecord['status'];
+  status: DocumentReview['status'];
   signed_download_url: string | null;
 }
 
@@ -45,13 +48,20 @@ const mapOcrEntry = (row: OcrEntryRow): OcrEntry => ({
   reviewed: row.reviewed
 });
 
-const mapDocument = (row: DocumentRow, ocrEntries: OcrEntry[]): DocumentRecord => ({
+const mapDocumentListItem = (row: Pick<DocumentRow, 'id' | 'filename'>): DocumentListItem => ({
   id: row.id,
-  householdId: row.household_id,
-  fileServerDocumentId: row.file_server_document_id,
+  filename: row.filename
+});
+
+const mapCreatedDocument = (row: Pick<DocumentRow, 'id' | 'filename' | 'status'>): DocumentCreated => ({
+  id: row.id,
   filename: row.filename,
-  mimeType: row.mime_type,
-  sizeInBytes: row.size_in_bytes,
+  status: row.status
+});
+
+const mapDocumentReview = (row: DocumentRow, ocrEntries: OcrEntry[]): DocumentReview => ({
+  id: row.id,
+  filename: row.filename,
   status: row.status,
   signedDownloadUrl: row.signed_download_url,
   ocrEntries
@@ -80,52 +90,81 @@ const createInitialOcrEntries = (documentId: string, filename: string): OcrEntry
   ];
 };
 
-export const listDocuments = async (householdId?: string): Promise<DocumentRecord[]> => {
-  const resolvedHouseholdId = householdId ?? (await getPrimaryHouseholdId());
-  const result = await queryDatabase<DocumentRow>(
+const getScopedDocumentRow = async (accountId: string, documentId: string): Promise<DocumentRow | null> => {
+  const scopedResult = await queryDatabase<DocumentRow>(
     `
-      SELECT id, household_id, file_server_document_id, filename, mime_type, size_in_bytes, status, signed_download_url
+      SELECT id, account_id, household_id, file_server_document_id, filename, mime_type, size_in_bytes, status, signed_download_url
       FROM documents
-      WHERE household_id = $1
-      ORDER BY created_at DESC
+      WHERE id = $1 AND account_id = $2
     `,
-    [resolvedHouseholdId]
+    [documentId, accountId]
   );
+  const scopedRow = scopedResult.rows[0];
 
-  return result.rows.map((row) => mapDocument(row, []));
+  if (scopedRow) {
+    return scopedRow;
+  }
+
+  const foreignResult = await queryDatabase<Pick<DocumentRow, 'id'>>('SELECT id FROM documents WHERE id = $1', [documentId]);
+
+  if (foreignResult.rows[0]) {
+    throw new AccountScopeError('Conta sem acesso ao documento solicitado.');
+  }
+
+  return null;
 };
 
-export const getDocumentReview = async (documentId: string): Promise<DocumentRecord | null> => {
-  const [documentResult, ocrResult] = await Promise.all([
-    queryDatabase<DocumentRow>(
-      `
-        SELECT id, household_id, file_server_document_id, filename, mime_type, size_in_bytes, status, signed_download_url
-        FROM documents
-        WHERE id = $1
-      `,
-      [documentId]
-    ),
-    queryDatabase<OcrEntryRow>(
-      `
-        SELECT id, document_id, description, amount, occurred_at, category, reviewed
-        FROM ocr_entries
-        WHERE document_id = $1
-        ORDER BY created_at ASC
-      `,
-      [documentId]
-    )
-  ]);
+export const listDocuments = async (accountId: string, householdId?: string): Promise<DocumentListItem[]> => {
+  const resolvedHouseholdId = await resolveHouseholdId(accountId, householdId);
+  const result = await queryDatabase<Pick<DocumentRow, 'id' | 'filename'>>(
+    `
+      SELECT id, filename
+      FROM documents
+      WHERE account_id = $1 AND household_id = $2
+      ORDER BY created_at DESC
+    `,
+    [accountId, resolvedHouseholdId]
+  );
 
-  const document = documentResult.rows[0];
+  return result.rows.map((row) => mapDocumentListItem(row));
+};
+
+export const getDocumentReview = async (accountId: string, documentId: string): Promise<DocumentReview | null> => {
+  const document = await getScopedDocumentRow(accountId, documentId);
 
   if (!document) {
     return null;
   }
 
-  return mapDocument(document, ocrResult.rows.map(mapOcrEntry));
+  const ocrResult = await queryDatabase<OcrEntryRow>(
+    `
+      SELECT id, document_id, description, amount, occurred_at, category, reviewed
+      FROM ocr_entries
+      WHERE document_id = $1
+      ORDER BY created_at ASC
+    `,
+    [documentId]
+  );
+
+  return mapDocumentReview(document, ocrResult.rows.map(mapOcrEntry));
 };
 
-export const registerDocument = async (input: RegisterDocumentInput): Promise<DocumentRecord> => {
+export const registerDocument = async (accountId: string, input: RegisterDocumentInput): Promise<DocumentCreated> => {
+  const resolvedHouseholdId = await resolveHouseholdId(accountId, input.householdId);
+  const existingForeignDocument = await queryDatabase<Pick<DocumentRow, 'id' | 'account_id'>>(
+    `
+      SELECT id, account_id
+      FROM documents
+      WHERE file_server_document_id = $1
+    `,
+    [input.fileServerDocumentId]
+  );
+
+  const foreignDocument = existingForeignDocument.rows[0];
+
+  if (foreignDocument && foreignDocument.account_id !== accountId) {
+    throw new AccountScopeError('Conta sem acesso ao documento de arquivo informado.');
+  }
   const pool = await getDatabasePool();
   const client = await pool.connect();
   const documentId = randomUUID();
@@ -137,6 +176,7 @@ export const registerDocument = async (input: RegisterDocumentInput): Promise<Do
       `
         INSERT INTO documents (
           id,
+          account_id,
           household_id,
           file_server_document_id,
           filename,
@@ -145,9 +185,11 @@ export const registerDocument = async (input: RegisterDocumentInput): Promise<Do
           status,
           signed_download_url
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (file_server_document_id)
         DO UPDATE SET
+          account_id = EXCLUDED.account_id,
+          household_id = EXCLUDED.household_id,
           filename = EXCLUDED.filename,
           mime_type = EXCLUDED.mime_type,
           size_in_bytes = EXCLUDED.size_in_bytes,
@@ -157,7 +199,8 @@ export const registerDocument = async (input: RegisterDocumentInput): Promise<Do
       `,
       [
         documentId,
-        input.householdId,
+        accountId,
+        resolvedHouseholdId,
         input.fileServerDocumentId,
         input.filename,
         input.mimeType,
@@ -169,11 +212,11 @@ export const registerDocument = async (input: RegisterDocumentInput): Promise<Do
 
     const existingDocumentResult = await client.query<DocumentRow>(
       `
-        SELECT id, household_id, file_server_document_id, filename, mime_type, size_in_bytes, status, signed_download_url
+        SELECT id, account_id, household_id, file_server_document_id, filename, mime_type, size_in_bytes, status, signed_download_url
         FROM documents
-        WHERE file_server_document_id = $1
+        WHERE file_server_document_id = $1 AND account_id = $2
       `,
-      [input.fileServerDocumentId]
+      [input.fileServerDocumentId, accountId]
     );
     const existingDocument = existingDocumentResult.rows[0];
 
@@ -199,13 +242,8 @@ export const registerDocument = async (input: RegisterDocumentInput): Promise<Do
     }
 
     await client.query('COMMIT');
-    const persisted = await getDocumentReview(existingDocument.id);
 
-    if (!persisted) {
-      throw new Error('Documento nao encontrado apos persistencia.');
-    }
-
-    return persisted;
+    return mapCreatedDocument(existingDocument);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -215,10 +253,17 @@ export const registerDocument = async (input: RegisterDocumentInput): Promise<Do
 };
 
 export const updateOcrEntry = async (
+  accountId: string,
   documentId: string,
   entryId: string,
   payload: UpdateOcrEntryInput
-): Promise<DocumentRecord | null> => {
+): Promise<DocumentReview | null> => {
+  const accessibleDocument = await getScopedDocumentRow(accountId, documentId);
+
+  if (!accessibleDocument) {
+    return null;
+  }
+
   const assignments: string[] = [];
   const values: unknown[] = [];
 
@@ -248,7 +293,7 @@ export const updateOcrEntry = async (
   }
 
   if (assignments.length === 0) {
-    return getDocumentReview(documentId);
+    return getDocumentReview(accountId, documentId);
   }
 
   values.push(entryId, documentId);
@@ -262,5 +307,5 @@ export const updateOcrEntry = async (
     values
   );
 
-  return getDocumentReview(documentId);
+  return getDocumentReview(accountId, documentId);
 };

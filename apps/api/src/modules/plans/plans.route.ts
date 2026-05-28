@@ -1,25 +1,49 @@
 import { createAvalanchePlan, createSnowballPlan } from '@controle-financeiro/finance-core';
+import { householdScopeQuerySchema, planComparisonSchema } from '@controle-financeiro/shared-contracts';
 import type { FastifyPluginAsync } from 'fastify';
 
-import { getHouseholdSnapshot } from '../households/household.repository.js';
+import { requireAuthContext } from '../auth/auth.service.js';
+import { AccountScopeError, getHouseholdSnapshot } from '../households/household.repository.js';
 
 export const plansRoute: FastifyPluginAsync = async (app) => {
-  app.get<{ Querystring: { householdId?: string } }>('/plans/comparison', async (request) => {
-    const household = await getHouseholdSnapshot(request.query.householdId);
-    const extraPayment = 300;
+  app.get('/plans/comparison', async (request, reply) => {
+    const authContext = requireAuthContext(request);
+    const query = householdScopeQuerySchema.parse(request.query);
 
-    return {
-      householdId: household.householdId,
-      avalanche: createAvalanchePlan({
+    try {
+      const household = await getHouseholdSnapshot(authContext.accountId, query.householdId);
+      const extraPayment = 300;
+      const avalanchePlan = createAvalanchePlan({
         incomes: household.incomes,
         debts: household.debts,
         extraPayment
-      }),
-      snowball: createSnowballPlan({
+      });
+      const snowballPlan = createSnowballPlan({
         incomes: household.incomes,
         debts: household.debts,
         extraPayment
-      })
-    };
+      });
+
+      return planComparisonSchema.parse({
+        avalanche: {
+          installments: avalanchePlan.installments.map((item) => ({
+            creditor: item.creditor,
+            recommendedPayment: item.recommendedPayment
+          }))
+        },
+        snowball: {
+          installments: snowballPlan.installments.map((item) => ({
+            creditor: item.creditor,
+            recommendedPayment: item.recommendedPayment
+          }))
+        }
+      });
+    } catch (error) {
+      if (error instanceof AccountScopeError) {
+        return reply.code(403).send({ message: error.message });
+      }
+
+      throw error;
+    }
   });
 };

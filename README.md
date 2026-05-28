@@ -1,6 +1,6 @@
 # controle_financeiro
 
-Projeto de engenharia de controle financeiro familiar e recuperação de ativos, com ingestão manual de documentos, revisão assistida por IA, diagnóstico de endividamento e prescrição de plano financeiro.
+SaaS de engenharia de controle financeiro familiar e recuperação de ativos, com cadastro de usuários, acesso restrito e seguro, ingestão manual de documentos, revisão assistida por IA, diagnóstico de endividamento e prescrição de plano financeiro.
 
 ## Documentação base
 
@@ -13,10 +13,12 @@ Projeto de engenharia de controle financeiro familiar e recuperação de ativos,
 ## Decisões atuais
 
 - Monorepo com `apps/web`, `apps/api` e `apps/file-server`.
+- Produto operado como SaaS com autenticação, autorização e isolamento por conta obrigatórios.
 - Frontend em Vue com Options API, PrimeVue e ApexCharts.
 - Backend principal em Node.js com PostgreSQL.
 - Servidor de arquivos isolado em Ruby on Rails.
 - Cálculos financeiros centralizados em pacote compartilhado.
+- API deve expor e aceitar apenas os campos estritamente necessários para cada tela do frontend.
 - Docker e Docker Compose como padrão para desenvolvimento e produção.
 - Stack principal limitada a 2 vCPUs e 1 GiB de RAM.
 

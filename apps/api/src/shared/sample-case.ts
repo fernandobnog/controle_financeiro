@@ -40,11 +40,7 @@ export const sampleEnvelopes: BudgetEnvelopeInput[] = [
 export const sampleDocuments: DocumentRecord[] = [
   {
     id: 'doc-1',
-    householdId: 'household-1',
-    fileServerDocumentId: 'stored-doc-legacy-1',
     filename: 'extrato-maio.pdf',
-    mimeType: 'application/pdf',
-    sizeInBytes: 4096,
     status: 'review',
     signedDownloadUrl: null,
     ocrEntries

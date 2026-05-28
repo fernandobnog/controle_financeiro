@@ -24,7 +24,9 @@ module Api
       end
 
       stored_document = StoredDocument.new(
+        account_id: auth_context.account_id,
         household_id: household_id,
+        uploaded_by_user_id: auth_context.user_id,
         original_filename: uploaded_file.original_filename,
         content_type: uploaded_file.content_type,
         byte_size: uploaded_file.size,
@@ -40,6 +42,7 @@ module Api
 
     def show
       stored_document = StoredDocument.find(params[:id])
+      raise AuthorizationError, "Conta sem acesso ao documento solicitado." if stored_document.account_id != auth_context.account_id
 
       render json: serialize_document(stored_document)
     rescue ActiveRecord::RecordNotFound
@@ -55,11 +58,9 @@ module Api
     def serialize_document(stored_document)
       {
         id: stored_document.id.to_s,
-        householdId: stored_document.household_id,
         filename: stored_document.original_filename,
         mimeType: stored_document.content_type,
         sizeInBytes: stored_document.byte_size,
-        status: stored_document.status,
         signedDownloadUrl: signed_download_url_for(stored_document)
       }
     end

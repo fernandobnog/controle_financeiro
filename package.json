@@ -7,19 +7,24 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "turbo run dev --parallel",
+    "env:init": "node ./scripts/setup-env.mjs",
+    "dev": "node ./scripts/dev-local.mjs",
+    "dev:apps": "turbo run dev --parallel",
+    "dev:infra": "node ./scripts/setup-env.mjs && docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.hybrid.yaml up -d postgres file-server",
+    "dev:infra:down": "node ./scripts/setup-env.mjs && docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.hybrid.yaml stop postgres file-server",
     "dev:web": "pnpm --filter @controle-financeiro/web dev",
     "dev:api": "pnpm --filter @controle-financeiro/api dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "pnpm exec turbo run test && pnpm test:file-server",
+    "test:file-server": "node ./scripts/test-file-server.mjs",
     "test:e2e:web": "pnpm --filter @controle-financeiro/web test",
     "test:smoke:compose": "node ./scripts/smoke-compose.mjs",
     "format": "turbo run format",
-    "docker:dev": "docker compose -f infra/compose/compose.base.yaml -f infra/compose/compose.dev.yaml up --build",
-    "docker:test": "docker compose -f infra/compose/compose.base.yaml -f infra/compose/compose.test.yaml up --abort-on-container-exit --exit-code-from api",
-    "docker:prod": "docker compose -f infra/compose/compose.base.yaml -f infra/compose/compose.prod.yaml up -d"
+    "docker:dev": "node ./scripts/setup-env.mjs && docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.dev.yaml up --build",
+    "docker:test": "node ./scripts/setup-env.mjs && docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.test.yaml up --abort-on-container-exit --exit-code-from api",
+    "docker:prod": "node ./scripts/setup-env.mjs && docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.prod.yaml up -d"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",

@@ -38,7 +38,9 @@ export const calculateDti = ({ incomes, debts }: CalculateDtiInput): DtiResult =
   );
 
   const dtiPercent = monthlyIncome.isZero()
-    ? 100
+    ? monthlyDebtPayments.isZero()
+      ? 0
+      : 100
     : Number(monthlyDebtPayments.dividedBy(monthlyIncome).mul(100).toDecimalPlaces(2).toString());
 
   return {

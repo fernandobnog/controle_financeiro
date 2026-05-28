@@ -19,6 +19,7 @@ O objetivo deste sistema é atuar como um planejador financeiro inteligente para
 ## 3. Padrões de Telas, Interfaces e UX (PrimeVue)
 * **Tema e Cores:** Sobriedade e segurança (azul, cinza, verde). Vermelho apenas para alertas críticos.
 * **Componentes:** `FileUpload` para PDFs/imagens, `DataTable` com Cell Editing para revisão de OCR da IA e `Cards` para envelopes do OBZ e gráficos.
+* **Idioma obrigatório na experiência do usuário:** Todo texto exibido ao usuário final deve estar em português do Brasil (`pt-BR`), com acentuação correta e terminologia consistente. Isso inclui labels, botões, placeholders, textos de ajuda, validações, mensagens de erro, notificações, e-mails e demais conteúdos visíveis na interface.
 
 ## 4. Ferramentas de Qualidade e Padronização de Código (Lint & CI/CD)
 Para garantir a qualidade íntegra e a padronização de todo o código escrito, o projeto utiliza as seguintes ferramentas:
@@ -38,7 +39,13 @@ Para garantir a qualidade íntegra e a padronização de todo o código escrito,
 * **Jest / Supertest (Backend Node):** Testar algoritmos matemáticos (Avalanche e DTI), endpoints da API e mockar a comunicação com o LlamaParse e o servidor Rails.
 
 ## 6. Segurança e Tratamento de Erros (Defensive Programming)
+* **Segurança por padrão:** Toda implementação, revisão, refatoração ou teste deve considerar segurança explicitamente, mesmo quando o pedido do usuário não mencionar o tema.
+* **Checklist mínima obrigatória:** Antes de concluir qualquer alteração, valide origem e destino dos dados, autenticação/autorização, validação server-side de todos os campos, limites de payload/upload/paginação/taxa/timeout/tentativas/concorrência e exposição segura de erros, logs e integrações.
+* **Validação de campos:** Todo campo vindo de UI, API, OCR, arquivos, query string, params, headers ou variáveis de ambiente deve ter validação explícita de tipo, formato, obrigatoriedade, faixa, tamanho mínimo/máximo, precisão decimal, enum permitido, normalização, sanitização e rejeição de campos inesperados.
 * **Prevenção a Injeções e XSS:** Todo input de usuário e todo retorno de OCR do LlamaParse deve ser rigidamente sanitizado. Consultas ao PostgreSQL DEVEM, obrigatoriamente, utilizar parameterized queries (ou statements preparados) para evitar SQL Injection.
+* **Segredos e Tokens:** Nunca hardcode segredos ou tokens. Nunca exponha tokens em logs, respostas de erro, screenshots, fixtures ou commits. Prefira TTL curto, rotação, revogação, mascaramento, escopos mínimos e armazenamento seguro; quando houver autenticação web, prefira cookies `HttpOnly`, `Secure` e `SameSite` ou armazenamento transitório, evitando persistir tokens sensíveis no navegador sem necessidade comprovada.
+* **APIs e comportamentos inseguros proibidos:** Evite `eval`, `new Function`, HTML cru (`v-html`, `innerHTML`) sem sanitização, concatenação de SQL, desserialização de conteúdo não confiável, `child_process.exec` com entrada do usuário, montagem de paths/URLs sem allowlist e geração de token com fontes não criptográficas.
+* **Comportamentos de sistema seguros:** Defina limites explícitos de recursos e abuse prevention, valide uploads por tamanho/MIME/assinatura, trate OCR e integrações externas como não confiáveis, previna SSRF e path traversal, e use idempotência quando houver risco de duplicidade.
 * **Tratamento de Exceções:** Implemente tratamento robusto de erros (`try/catch`) cobrindo falhas em conexões de banco de dados e limites de API. Falhas graves não devem quebrar a aplicação, mas sim falhar de forma rápida (fail-fast), exibir mensagens seguras ao usuário e gravar logs em um serviço de mensageria interno para os administradores.
 
 ## 7. Diretrizes para Geração de Código do Copilot
@@ -46,6 +53,8 @@ Para garantir a qualidade íntegra e a padronização de todo o código escrito,
 * **Vue.js (APENAS OPTIONS API):** Todo código Vue gerado DEVE utilizar a **Options API** (`data()`, `methods`, `computed`, etc.). **NUNCA** utilize Composition API ou `<script setup>`.
 * **Tipagem e Qualidade:** O código deve estar em conformidade com regras rígidas do ESLint.
 * **Matemática Financeira:** Sempre utilize bibliotecas de precisão decimal (ex: `currency.js` ou `decimal.js`) para evitar erros de ponto flutuante em cálculos.
+* **Perguntas obrigatórias de revisão:** Em toda feature ou correção, o Copilot deve verificar pelo menos: quem pode executar a ação, quais campos entram no fluxo, quais limites e validações cada campo exige, quais tokens/segredos passam pelo caminho, o que impede abuso/enumeração/replay/payload excessivo e o que pode vazar em logs ou respostas de erro.
+* **Lacunas de segurança:** Quando uma mitigação relevante não puder ser implementada no contexto da tarefa, o Copilot deve explicitar a lacuna e o risco residual na resposta.
 
 ## 8. Containerização e Ambientes
 * **Padrão único:** Desenvolvimento e produção devem usar Docker e Docker Compose como padrão operacional.

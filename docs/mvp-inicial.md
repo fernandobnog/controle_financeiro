@@ -2,17 +2,25 @@
 
 ## Objetivo do MVP
 
-Entregar um fluxo funcional, auditável e seguro para uma família:
+Entregar um fluxo funcional, auditável e seguro para um cliente SaaS e sua família vinculada:
 
-1. Enviar documentos financeiros manualmente.
-2. Revisar e corrigir o OCR antes da consolidação.
-3. Consolidar renda, despesas e dívidas.
-4. Calcular DTI com precisão decimal.
-5. Gerar plano de priorização Avalanche ou Bola de Neve.
-6. Montar envelopes de Orçamento Base Zero.
-7. Acompanhar um dashboard simples com diagnóstico e plano.
+1. Cadastrar usuário e iniciar sessão com acesso restrito.
+2. Enviar documentos financeiros manualmente.
+3. Revisar e corrigir o OCR antes da consolidação.
+4. Consolidar renda, despesas e dívidas.
+5. Calcular DTI com precisão decimal.
+6. Gerar plano de priorização Avalanche ou Bola de Neve.
+7. Montar envelopes de Orçamento Base Zero.
+8. Acompanhar um dashboard simples com diagnóstico e plano.
 
 ## O que entra no MVP
+
+### Módulo 0: identidade e acesso SaaS
+
+- Cadastro de usuário com credenciais seguras.
+- Login e gestão de sessão.
+- Vinculação do usuário à conta ou unidade familiar autorizada.
+- Bloqueio de acesso a dados de outras contas.
 
 ### Módulo 1: cadastro mínimo da unidade familiar
 
@@ -66,7 +74,7 @@ Entregar um fluxo funcional, auditável e seguro para uma família:
 - Chatbot financeiro generativo para usuário final.
 - Renegociação automática com credores.
 - Aplicativo mobile nativo.
-- Multiempresa ou multi-tenant completo.
+- Administração multiempresa avançada e delegação complexa entre múltiplas contas.
 - Motor avançado de previsão de inadimplência.
 - Integrações com ERPs, CRMs ou mensageria externa complexa.
 
@@ -79,6 +87,7 @@ Entregar um fluxo funcional, auditável e seguro para uma família:
 - Definir `compose.base.yaml`, `compose.dev.yaml`, `compose.test.yaml` e `compose.prod.yaml` como padrão operacional do projeto.
 - Fixar limites de CPU e RAM em todos os serviços da stack principal, respeitando `2` vCPUs e `1 GiB` no total.
 - Criar o pacote `finance-core` e os contratos compartilhados.
+- Definir modelo de identidade, sessão e isolamento mínimo por conta desde o primeiro slice vertical.
 
 ### Fase 1: ingestão e revisão
 
@@ -119,12 +128,14 @@ Entregar um fluxo funcional, auditável e seguro para uma família:
 
 ## Critérios de aceite do MVP
 
+- O usuário consegue se cadastrar, autenticar e acessar apenas os dados da sua conta.
 - O usuário consegue enviar um documento e acompanhar seu status.
 - O OCR pode ser revisado manualmente antes da consolidação.
 - O sistema calcula DTI com precisão decimal e explica a fórmula usada.
 - O sistema gera ao menos um plano Avalanche e um plano Bola de Neve com ordenação reproduzível.
 - O orçamento base zero fecha a alocação da renda disponível sem diferença silenciosa de centavos.
 - O dashboard final mostra os principais indicadores do caso.
+- Os endpoints do fluxo principal expõem somente os campos necessários para a UI de cada etapa.
 - Os principais fluxos têm cobertura automatizada.
 - A stack principal sobe com Docker Compose dentro do teto operacional de `2` vCPUs e `1 GiB` de RAM.
 

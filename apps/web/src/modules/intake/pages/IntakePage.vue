@@ -92,7 +92,7 @@
 </template>
 
 <script lang="ts">
-import type { DocumentRecord, UpdateOcrEntryInput } from '@controle-financeiro/shared-contracts';
+import type { DocumentListItem, DocumentReview, UpdateOcrEntryInput } from '@controle-financeiro/shared-contracts';
 import { defineComponent } from 'vue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
@@ -107,12 +107,11 @@ import Tag from 'primevue/tag';
 import {
   getDocumentReview,
   getDocuments,
+  getOnboardingProfile,
   registerDocument,
   updateDocumentOcrEntry,
   uploadFileToStorage
 } from '@/shared/api/client';
-
-const DEFAULT_HOUSEHOLD_ID = 'household-1';
 
 interface UploadEvent {
   files: File | File[];
@@ -143,9 +142,10 @@ export default defineComponent({
   },
   data() {
     return {
-      documents: [] as DocumentRecord[],
-      reviewDocument: null as DocumentRecord | null,
+      documents: [] as DocumentListItem[],
+      reviewDocument: null as DocumentReview | null,
       selectedDocumentId: '',
+      householdId: '',
       loading: true,
       uploading: false,
       errorMessage: '',
@@ -172,9 +172,14 @@ export default defineComponent({
     }
   },
   async created() {
-    await this.loadDocuments();
+    await Promise.all([this.loadHouseholdContext(), this.loadDocuments()]);
   },
   methods: {
+    async loadHouseholdContext() {
+      const profile = await getOnboardingProfile();
+
+      this.householdId = profile.householdId;
+    },
     async loadDocuments(preferredDocumentId?: string) {
       this.loading = true;
       this.errorMessage = '';
@@ -253,14 +258,19 @@ export default defineComponent({
         return;
       }
 
+      if (!this.householdId) {
+        this.errorMessage = 'Conclua ou recarregue a base financeira antes de enviar documentos.';
+        return;
+      }
+
       this.uploading = true;
       this.errorMessage = '';
       this.uploadFeedback = `Enviando ${firstFile.name} para o file server...`;
 
       try {
-        const storedFile = await uploadFileToStorage(DEFAULT_HOUSEHOLD_ID, firstFile);
+        const storedFile = await uploadFileToStorage(this.householdId, firstFile);
         const document = await registerDocument({
-          householdId: storedFile.householdId,
+          householdId: this.householdId,
           fileServerDocumentId: storedFile.id,
           filename: storedFile.filename,
           mimeType: storedFile.mimeType,

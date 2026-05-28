@@ -2,7 +2,7 @@
 
 ## Objetivo da arquitetura
 
-O projeto deve permitir ingestão manual de documentos financeiros, revisão humana do OCR, consolidação de renda e dívidas, cálculo de DTI, geração de planos Avalanche ou Bola de Neve e organização por Orçamento Base Zero, sem acoplar a aplicação principal ao armazenamento de arquivos ou à lógica de OCR.
+O projeto deve operar como um SaaS de controle financeiro familiar. A arquitetura precisa suportar cadastro de usuários, autenticação, autorização, isolamento por conta, ingestão manual de documentos financeiros, revisão humana do OCR, consolidação de renda e dívidas, cálculo de DTI, geração de planos Avalanche ou Bola de Neve e organização por Orçamento Base Zero, sem acoplar a aplicação principal ao armazenamento de arquivos ou à lógica de OCR.
 
 ## Decisão estrutural
 
@@ -18,6 +18,15 @@ A melhor base para o projeto é um monorepo com separação por domínio e por r
 - `infra` para docker, compose e automações locais.
 
 Essa divisão acelera o desenvolvimento porque isola pontos de mudança, evita duplicação da matemática financeira e permite que frontend, backend e servidor de arquivos evoluam com baixo acoplamento.
+
+## Modelo SaaS e controle de acesso
+
+- Todo acesso funcional deve ocorrer dentro de um contexto autenticado, exceto `healthchecks`, onboarding e fluxos públicos estritamente necessários.
+- Cada usuário pertence a uma conta e só pode acessar famílias, documentos, diagnósticos e planos vinculados a essa conta.
+- A API deve aplicar autorização por recurso em toda leitura e escrita. Receber um `householdId` válido não pode ser suficiente para conceder acesso.
+- O cadastro inicial deve permitir criação de usuário, login seguro, revogação de sessão e recuperação controlada de acesso.
+- O file server deve aceitar operações apenas quando houver identidade validada e escopo autorizado para o documento.
+- Eventos sensíveis, como login, upload, revisão OCR e alteração de plano, devem produzir trilha mínima de auditoria.
 
 ## Estrutura de pastas recomendada
 
@@ -119,6 +128,7 @@ controle_financeiro/
 
 ### apps/web
 
+- Exibir onboarding, cadastro, login e recuperação de acesso do usuário SaaS.
 - Receber uploads de extratos, comprovantes e documentos.
 - Exibir revisão de OCR com `FileUpload` e `DataTable` com Cell Editing.
 - Apresentar DTI, envelopes de OBZ e plano de ação em cards e gráficos.
@@ -129,7 +139,8 @@ controle_financeiro/
 
 - Validar entrada, orquestrar OCR, persistir dados e montar respostas para a UI.
 - Calcular DTI, OBZ, Avalanche e Bola de Neve usando o pacote compartilhado.
-- Centralizar autorização, sanitização, logging, auditoria e tratamento de erros.
+- Centralizar autenticação, autorização por recurso, sanitização, logging, auditoria e tratamento de erros.
+- Expor DTOs específicos por caso de uso, retornando somente os campos necessários para a tela ou integração consumidora.
 - Expor endpoints estáveis e versionáveis para web e integrações futuras.
 
 ### apps/file-server
@@ -149,17 +160,22 @@ controle_financeiro/
 ### packages/shared-contracts
 
 - Concentrar schemas compartilhados entre frontend e backend.
-- Padronizar DTOs de upload, revisão de OCR, diagnóstico, dívidas, envelopes e planos.
+- Padronizar DTOs de onboarding, autenticação, upload, revisão de OCR, diagnóstico, dívidas, envelopes e planos.
 - Reduzir divergência entre payload esperado pela UI e payload entregue pela API.
+- Separar contratos de listagem, detalhe e atualização quando isso evitar overfetching ou exposição de campos internos.
 
 ## Fluxo operacional principal
 
 ```mermaid
 flowchart LR
-    U[Usuario] --> W[Web Vue + PrimeVue]
+    U[Usuario SaaS] --> W[Web Vue + PrimeVue]
+    W --> AUTH[Cadastro + Login + Sessao]
+    AUTH --> API[API Node.js]
+    W --> API
     W --> FS[File Server Rails]
+    FS --> API
     FS --> LP[LlamaParse]
-    LP --> API[API Node.js]
+    LP --> API
     API --> DB[(PostgreSQL)]
     API --> CG[Cognee]
     DB --> API
@@ -202,6 +218,8 @@ flowchart LR
 
 ## Entidades iniciais do domínio
 
+- `users` para identidade, autenticação e ciclo de acesso.
+- `account_memberships` para vínculo entre usuário, conta e papéis autorizados.
 - `households` para o núcleo familiar atendido.
 - `people` para membros da família e fontes de renda.
 - `documents` para arquivos enviados e seu status de processamento.
@@ -218,6 +236,9 @@ flowchart LR
 - Sem integração direta com Open Finance no MVP.
 - Sem lógica financeira dentro de componentes Vue.
 - Sem acesso direto do frontend ao banco ou ao storage.
+- Sem endpoint funcional sem contexto autenticado, exceto onboarding e saúde do serviço.
+- Sem acesso cruzado entre contas, famílias ou documentos por simples conhecimento de identificadores.
+- Sem payload genérico que retorne agregados completos quando a tela consumir apenas resumo, lista ou subconjunto de campos.
 - Sem interpolação manual de SQL.
 - Sem acoplamento da API ao mecanismo interno do file server.
 - Sem aceitar payload de OCR sem validação e sanitização.

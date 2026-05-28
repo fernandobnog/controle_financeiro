@@ -6,13 +6,47 @@ x-logging: &default-logging
     max-size: 10m
     max-file: '3'
 
+x-web-environment: &web-environment
+  VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+  VITE_FILE_SERVER_BASE_URL: ${VITE_FILE_SERVER_BASE_URL}
+  VITE_DEV_USER_EMAIL: ${VITE_DEV_USER_EMAIL}
+  VITE_DEV_USER_PASSWORD: ${VITE_DEV_USER_PASSWORD}
+  VITE_API_ACCESS_TOKEN: ${VITE_API_ACCESS_TOKEN:-}
+
+x-app-auth-environment: &app-auth-environment
+  APP_AUTH_SECRET: ${APP_AUTH_SECRET}
+
+x-api-environment: &api-environment
+  <<: *app-auth-environment
+  NODE_ENV: ${NODE_ENV}
+  HOST: ${HOST}
+  PORT: ${PORT}
+  DATABASE_URL: ${DATABASE_URL}
+  AUTO_SEED_DB: ${AUTO_SEED_DB}
+
+x-file-server-environment: &file-server-environment
+  <<: *app-auth-environment
+  DATABASE_URL: ${DATABASE_URL}
+  RAILS_ENV: ${RAILS_ENV}
+  RAILS_LOG_TO_STDOUT: ${RAILS_LOG_TO_STDOUT}
+  FILE_SERVER_DATABASE_PASSWORD: ${FILE_SERVER_DATABASE_PASSWORD:-}
+
+x-postgres-environment: &postgres-environment
+  POSTGRES_DB: ${POSTGRES_DB}
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+x-minio-environment: &minio-environment
+  MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+  MINIO_DEFAULT_BUCKET: ${MINIO_DEFAULT_BUCKET}
+
 services:
   web:
     build:
       context: ../..
       dockerfile: infra/docker/web.Dockerfile
-    env_file:
-      - ./env/app.env.example
+    environment: *web-environment
     depends_on:
       api:
         condition: service_healthy
@@ -40,9 +74,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/api.Dockerfile
-    env_file:
-      - ./env/app.env.example
-      - ./env/db.env.example
+    environment: *api-environment
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,9 +102,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/file-server.Dockerfile
-    env_file:
-      - ./env/app.env.example
-      - ./env/db.env.example
+    environment: *file-server-environment
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,8 +130,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    env_file:
-      - ./env/db.env.example
+    environment: *postgres-environment
     command:
       - postgres
       - -c
@@ -135,8 +164,7 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    env_file:
-      - ./env/storage.env.example
+    environment: *minio-environment
     command: server /data --console-address ':9001'
     volumes:
       - minio-data:/data

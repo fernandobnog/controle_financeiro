@@ -1,0 +1,14 @@
+services:
+  postgres:
+    ports:
+      - '5432:5432'
+
+  file-server:
+    build:
+      target: development
+    working_dir: /workspace/apps/file-server
+    command: sh -lc "rm -f tmp/pids/server.pid && bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0 -p 3002"
+    ports:
+      - '3002:3002'
+    volumes:
+      - ../../apps/file-server:/workspace/apps/file-server

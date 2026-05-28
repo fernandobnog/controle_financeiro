@@ -1,29 +1,35 @@
-import { allocateBudgetZero, calculateDti } from '@controle-financeiro/finance-core';
-import { diagnosisSchema } from '@controle-financeiro/shared-contracts';
+import { calculateDti } from '@controle-financeiro/finance-core';
+import { diagnosisSummarySchema, householdScopeQuerySchema } from '@controle-financeiro/shared-contracts';
 import type { FastifyPluginAsync } from 'fastify';
 
-import { getHouseholdSnapshot } from '../households/household.repository.js';
+import { requireAuthContext } from '../auth/auth.service.js';
+import { AccountScopeError, getHouseholdSnapshot } from '../households/household.repository.js';
 
 export const diagnosisRoute: FastifyPluginAsync = async (app) => {
-  app.get<{ Querystring: { householdId?: string } }>('/diagnosis/summary', async (request) => {
-    const household = await getHouseholdSnapshot(request.query.householdId);
-    const diagnosis = calculateDti({
-      incomes: household.incomes,
-      debts: household.debts
-    });
-    const budget = allocateBudgetZero({
-      incomes: household.incomes,
-      debts: household.debts,
-      envelopes: household.envelopes
-    });
+  app.get('/diagnosis/summary', async (request, reply) => {
+    const authContext = requireAuthContext(request);
+    const query = householdScopeQuerySchema.parse(request.query);
 
-    return diagnosisSchema.parse({
-      householdId: household.householdId,
-      householdName: household.householdName,
-      ...diagnosis,
-      debtCount: household.debts.length,
-      totalDebtBalance: household.debts.reduce((carry, item) => carry + item.balance, 0),
-      budgetRemaining: budget.remainingAmount
-    });
+    try {
+      const household = await getHouseholdSnapshot(authContext.accountId, query.householdId);
+      const diagnosis = calculateDti({
+        incomes: household.incomes,
+        debts: household.debts
+      });
+
+      return diagnosisSummarySchema.parse({
+        monthlyIncome: diagnosis.monthlyIncome,
+        monthlyDebtPayments: diagnosis.monthlyDebtPayments,
+        dtiPercent: diagnosis.dtiPercent,
+        classification: diagnosis.classification,
+        totalDebtBalance: household.debts.reduce((carry, item) => carry + item.balance, 0)
+      });
+    } catch (error) {
+      if (error instanceof AccountScopeError) {
+        return reply.code(403).send({ message: error.message });
+      }
+
+      throw error;
+    }
   });
 };

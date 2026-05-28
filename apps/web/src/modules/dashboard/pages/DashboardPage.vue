@@ -65,18 +65,13 @@
 </template>
 
 <script lang="ts">
-import type { ActionPlan, FinancialDiagnosis } from '@controle-financeiro/shared-contracts';
+import type { FinancialDiagnosisSummary, PlanComparison } from '@controle-financeiro/shared-contracts';
 import { defineComponent } from 'vue';
 import Card from 'primevue/card';
 import ProgressSpinner from 'primevue/progressspinner';
 import ApexChart from 'vue3-apexcharts';
 
 import { getDiagnosisSummary, getPlanComparison } from '@/shared/api/client';
-
-interface PlanComparison {
-  avalanche: ActionPlan;
-  snowball: ActionPlan;
-}
 
 export default defineComponent({
   name: 'DashboardPage',
@@ -87,7 +82,7 @@ export default defineComponent({
   },
   data() {
     return {
-      diagnosis: null as FinancialDiagnosis | null,
+      diagnosis: null as FinancialDiagnosisSummary | null,
       plans: null as PlanComparison | null,
       loading: true,
       errorMessage: ''

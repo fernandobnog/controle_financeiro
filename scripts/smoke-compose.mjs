@@ -4,7 +4,15 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const composeArgs = ['compose', '-f', 'infra/compose/compose.base.yaml', '-f', 'infra/compose/compose.dev.yaml'];
+const composeArgs = [
+  'compose',
+  '--env-file',
+  'infra/compose/env/.env',
+  '-f',
+  'infra/compose/compose.base.yaml',
+  '-f',
+  'infra/compose/compose.dev.yaml'
+];
 
 const runCommand = (command, args, options = {}) =>
   new Promise((resolveCommand, rejectCommand) => {
@@ -87,6 +95,7 @@ const assert = (condition, message) => {
 };
 
 try {
+  await runCommand(process.execPath, ['./scripts/setup-env.mjs']);
   await runCommand('docker', [...composeArgs, 'up', '-d', '--build']);
 
   await waitForHttp('http://127.0.0.1:3001/api/health', 'API');

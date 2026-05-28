@@ -32,9 +32,8 @@ infra/
 |   |-- compose.test.yaml
 |   |-- compose.tools.yaml
 |   `-- env/
-|       |-- app.env.example
-|       |-- db.env.example
-|       `-- storage.env.example
+|       |-- .env.example
+|       `-- .env
 `-- docker/
     |-- web.Dockerfile
     |-- api.Dockerfile
@@ -147,7 +146,10 @@ Os limites abaixo são o teto inicial obrigatório para o perfil padrão local c
 
 ### Variáveis e segredos
 
-- Cada compose deve consumir arquivos `.env` de exemplo versionados e arquivos reais fora do controle de versão.
+- Centralize todas as variáveis em `infra/compose/env/.env`.
+- Versione apenas `infra/compose/env/.env.example` como template único e mantenha `infra/compose/env/.env` fora do controle de versão.
+- Gere o arquivo real uma vez com `pnpm env:init` e passe a gerenciar apenas `infra/compose/env/.env` no dia a dia.
+- O Compose deve interpolar esse arquivo central, mas cada serviço deve receber apenas as variáveis explicitamente mapeadas para ele.
 - Produção deve preferir segredos injetados pelo host, pipeline ou orquestrador.
 - Não duplicar chaves de configuração em múltiplos arquivos se a base puder centralizar isso.
 
@@ -181,22 +183,28 @@ Os limites abaixo são o teto inicial obrigatório para o perfil padrão local c
 
 ## Comandos esperados
 
+### Bootstrap do ambiente
+
+```bash
+pnpm env:init
+```
+
 ### Desenvolvimento
 
 ```bash
-docker compose -f infra/compose/compose.base.yaml -f infra/compose/compose.dev.yaml up --build
+docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.dev.yaml up --build
 ```
 
 ### Testes
 
 ```bash
-docker compose -f infra/compose/compose.base.yaml -f infra/compose/compose.test.yaml up --abort-on-container-exit --exit-code-from api
+docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.test.yaml up --abort-on-container-exit --exit-code-from api
 ```
 
 ### Produção
 
 ```bash
-docker compose -f infra/compose/compose.base.yaml -f infra/compose/compose.prod.yaml up -d
+docker compose --env-file infra/compose/env/.env -f infra/compose/compose.base.yaml -f infra/compose/compose.prod.yaml up -d
 ```
 
 ## Critérios de aceite para futuros arquivos Docker e Compose

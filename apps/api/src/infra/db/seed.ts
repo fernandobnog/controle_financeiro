@@ -1,18 +1,100 @@
 import type { Pool } from 'pg';
 
+import { createPasswordHash } from '../../modules/auth/auth.service.js';
+
+const defaultAccountId = 'account-1';
 const householdId = 'household-1';
+const secondaryAccountId = 'account-2';
+const secondaryHouseholdId = 'household-2';
+
+export const defaultUserEmail = 'owner@familia-souza.local';
+export const defaultUserPassword = 'demo12345';
+export const secondaryUserEmail = 'owner@familia-lima.local';
+export const secondaryUserPassword = 'demo67890';
+
+const upsertUser = async (
+  pool: Pool,
+  input: {
+    id: string;
+    accountId: string;
+    email: string;
+    fullName: string;
+    role: 'owner' | 'member';
+    password: string;
+  }
+): Promise<void> => {
+  const passwordSalt = `${input.id}-salt`;
+  const passwordHash = createPasswordHash(input.password, passwordSalt);
+
+  await pool.query(
+    `
+      INSERT INTO users (id, account_id, email, full_name, role, password_hash, password_salt)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (id)
+      DO UPDATE SET
+        account_id = EXCLUDED.account_id,
+        email = EXCLUDED.email,
+        full_name = EXCLUDED.full_name,
+        role = EXCLUDED.role,
+        password_hash = EXCLUDED.password_hash,
+        password_salt = EXCLUDED.password_salt,
+        updated_at = CURRENT_TIMESTAMP
+    `,
+    [input.id, input.accountId, input.email, input.fullName, input.role, passwordHash, passwordSalt]
+  );
+};
 
 export const seedDatabase = async (pool: Pool): Promise<void> => {
   await pool.query(
     `
-      INSERT INTO households (id, name)
-      VALUES ($1, $2)
+      INSERT INTO accounts (id, name)
+      VALUES ($1, $2), ($3, $4)
       ON CONFLICT (id)
       DO UPDATE SET
         name = EXCLUDED.name,
         updated_at = CURRENT_TIMESTAMP
     `,
-    [householdId, 'Familia Souza']
+    [defaultAccountId, 'Conta Familia Souza', secondaryAccountId, 'Conta Familia Lima']
+  );
+
+  await pool.query(
+    `
+      UPDATE accounts
+      SET onboarding_completed_at = COALESCE(onboarding_completed_at, CURRENT_TIMESTAMP)
+      WHERE id IN ($1, $2)
+    `,
+    [defaultAccountId, secondaryAccountId]
+  );
+
+  await upsertUser(pool, {
+    id: 'user-1',
+    accountId: defaultAccountId,
+    email: defaultUserEmail,
+    fullName: 'Responsavel Familia Souza',
+    role: 'owner',
+    password: defaultUserPassword
+  });
+
+  await upsertUser(pool, {
+    id: 'user-2',
+    accountId: secondaryAccountId,
+    email: secondaryUserEmail,
+    fullName: 'Responsavel Familia Lima',
+    role: 'owner',
+    password: secondaryUserPassword
+  });
+
+  await pool.query(
+    `
+      INSERT INTO households (id, account_id, name)
+      VALUES ($1, $2, $3), ($4, $5, $6)
+      ON CONFLICT (id)
+      DO UPDATE SET
+        account_id = EXCLUDED.account_id,
+        name = EXCLUDED.name,
+        updated_at = CURRENT_TIMESTAMP
+    `,
+    [householdId, defaultAccountId, 'Familia Souza', secondaryHouseholdId, secondaryAccountId, 'Familia Lima']
   );
 
   await pool.query(
@@ -70,3 +152,4 @@ export const seedDatabase = async (pool: Pool): Promise<void> => {
 };
 
 export const defaultHouseholdId = householdId;
+export { defaultAccountId, householdId as primaryHouseholdId, secondaryAccountId, secondaryHouseholdId };
